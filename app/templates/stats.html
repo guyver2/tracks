@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "macros.html" import stat_card %}
+
+{% block title %}Stats — Tracks{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Statistics</h1>
+
+<div class="stat-grid stat-grid-3 dashboard-stats">
+  {{ stat_card('Total distance', totals.all.distance_km, 'km') }}
+  {{ stat_card('Total activities', totals.all.count) }}
+  {{ stat_card('Total elevation', totals.all.elevation_m, 'm') }}
+</div>
+
+<div class="chart-grid">
+  <div class="chart-card">
+    <h2 class="section-title">Distance per month (km)</h2>
+    <div class="chart-container">
+      <canvas id="chart-distance"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h2 class="section-title">Activities per month</h2>
+    <div class="chart-container">
+      <canvas id="chart-count"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h2 class="section-title">Elevation per month (m)</h2>
+    <div class="chart-container">
+      <canvas id="chart-elevation"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h2 class="section-title">Breakdown by type</h2>
+    <div class="chart-container">
+      <canvas id="chart-type"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#f0f4ff' } } },
+  scales: {
+    x: { ticks: { color: '#7a82a8' }, grid: { color: '#2e3350' } },
+    y: { ticks: { color: '#7a82a8' }, grid: { color: '#2e3350' } },
+  },
+};
+
+const labels = {{ monthly_labels | safe }};
+
+new Chart(document.getElementById('chart-distance'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{ label: 'km', data: {{ monthly_distances | safe }}, backgroundColor: '#5b8dee' }],
+  },
+  options: chartDefaults,
+});
+
+new Chart(document.getElementById('chart-count'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{ label: 'Count', data: {{ monthly_counts | safe }}, borderColor: '#43c78a', tension: 0.2 }],
+  },
+  options: chartDefaults,
+});
+
+new Chart(document.getElementById('chart-elevation'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{ label: 'm', data: {{ monthly_elevations | safe }}, backgroundColor: '#7c5ce0' }],
+  },
+  options: chartDefaults,
+});
+
+new Chart(document.getElementById('chart-type'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ type_labels | safe }},
+    datasets: [{
+      data: {{ type_distances | safe }},
+      backgroundColor: ['#43c78a', '#5b8dee'],
+    }],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#f0f4ff' } } },
+  },
+});
+</script>
+{% endblock %}

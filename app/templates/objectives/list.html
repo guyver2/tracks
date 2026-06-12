@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Objectives — Tracks{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Objectives</h1>
+  <a href="/objectives/new" class="btn btn-primary">New objective</a>
+</div>
+
+{% if items %}
+<div class="objective-grid">
+  {% for item in items %}
+  <div class="objective-card card">
+    <div class="objective-header">
+      <strong>{{ item.progress.label }}</strong>
+      <span class="objective-values">{{ item.progress.current }} / {{ item.progress.target }}</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {{ item.progress.pct }}%"></div>
+    </div>
+    <div class="objective-meta text-dim">
+      {{ item.objective.start_date.isoformat() }} — {{ item.objective.end_date.isoformat() }}
+    </div>
+    <div class="objective-actions">
+      <a href="/objectives/{{ item.objective.id }}/edit" class="btn btn-secondary btn-sm">Edit</a>
+      <form method="post" action="/objectives/{{ item.objective.id }}/delete" class="inline-form"
+            onsubmit="return confirm('Delete this objective?')">
+        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-dim empty-state">No objectives yet. <a href="/objectives/new">Set a goal</a>.</p>
+{% endif %}
+{% endblock %}

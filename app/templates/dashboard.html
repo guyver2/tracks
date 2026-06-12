@@ -1,8 +1,72 @@
 {% extends "base.html" %}
+{% from "macros.html" import format_duration, type_badge, stat_card %}
 
 {% block title %}Dashboard — Tracks{% endblock %}
 
 {% block content %}
 <h1 class="page-title">Dashboard</h1>
-<p class="text-dim">Your sport activity tracker.</p>
+<p class="text-dim page-subtitle">{{ month_label }}</p>
+
+<div class="stat-grid stat-grid-3 dashboard-stats">
+  {{ stat_card('This month', month.distance_km, 'km') }}
+  {{ stat_card('Activities', month.count) }}
+  {{ stat_card('All time', totals.all.distance_km, 'km') }}
+</div>
+
+<div class="stat-grid stat-grid-2 dashboard-stats">
+  {{ stat_card('Hikes', totals.hike.count) }}
+  {{ stat_card('Bike rides', totals.bike.count) }}
+</div>
+
+{% if objectives %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Objectives</h2>
+    <a href="/objectives">View all</a>
+  </div>
+  <div class="objective-list">
+    {% for item in objectives %}
+    <div class="objective-card">
+      <div class="objective-header">
+        <span>{{ item.progress.label }}</span>
+        <span class="objective-values">{{ item.progress.current }} / {{ item.progress.target }}</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {{ item.progress.pct }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Recent activities</h2>
+    <a href="/activities">View all</a>
+  </div>
+  {% if recent %}
+  <div class="activity-cards">
+    {% for activity in recent %}
+    <a href="/activities/{{ activity.id }}" class="activity-card">
+      <div class="activity-card-top">
+        <strong>{{ activity.name }}</strong>
+        {{ type_badge(activity.activity_type) }}
+      </div>
+      <div class="activity-card-meta">
+        <span>{{ activity.date.isoformat() }}</span>
+        {% if activity.distance_km %}<span>{{ activity.distance_km }} km</span>{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-dim">No activities yet. <a href="/activities/new">Log your first outing</a>.</p>
+  {% endif %}
+</section>
+
+<div class="quick-actions">
+  <a href="/activities/new" class="btn btn-primary">New activity</a>
+  <a href="/objectives/new" class="btn btn-secondary">New objective</a>
+</div>
 {% endblock %}
