@@ -27,6 +27,7 @@
         <option value="bike"{% if activity and activity.activity_type.value == 'bike' %} selected{% endif %}>Bike</option>
         <option value="skitouring"{% if activity and activity.activity_type.value == 'skitouring' %} selected{% endif %}>Ski touring</option>
         <option value="climbing"{% if activity and activity.activity_type.value == 'climbing' %} selected{% endif %}>Climbing</option>
+        <option value="swimming"{% if activity and activity.activity_type.value == 'swimming' %} selected{% endif %}>Swimming</option>
       </select>
     </label>
 
@@ -38,6 +39,20 @@
     <label class="form-field">
       <span class="field-label">Place</span>
       <input type="text" name="place" value="{{ activity.place if activity else '' }}" placeholder="e.g. Mont Blanc">
+    </label>
+  </div>
+
+  <div id="manual-stats-field" class="form-grid" hidden>
+    <label class="form-field">
+      <span class="field-label">Distance (km)</span>
+      <input type="number" name="distance_km" step="0.01" min="0"
+             value="{{ activity.distance_km if activity and activity.distance_km is not none else '' }}">
+    </label>
+
+    <label class="form-field">
+      <span class="field-label">Duration (minutes)</span>
+      <input type="number" name="duration_min" step="1" min="0"
+             value="{{ (activity.duration_sec // 60) if activity and activity.duration_sec is not none else '' }}">
     </label>
   </div>
 
@@ -84,15 +99,17 @@
 (function () {
   const typeSelect = document.getElementById('activity-type-select');
   const gpxField = document.getElementById('gpx-field');
+  const manualStatsField = document.getElementById('manual-stats-field');
   const trackTypes = new Set(['hike', 'bike', 'skitouring']);
 
-  function toggleGpxField() {
-    const showTrack = trackTypes.has(typeSelect.value);
-    gpxField.hidden = !showTrack;
+  function syncTypeFields() {
+    const type = typeSelect.value;
+    gpxField.hidden = !trackTypes.has(type);
+    manualStatsField.hidden = type !== 'swimming';
   }
 
-  typeSelect.addEventListener('change', toggleGpxField);
-  toggleGpxField();
+  typeSelect.addEventListener('change', syncTypeFields);
+  syncTypeFields();
 })();
 </script>
 {% endblock %}

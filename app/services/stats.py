@@ -111,6 +111,7 @@ def get_type_breakdown(db: Session) -> dict:
         ActivityType.bike: "Bike rides",
         ActivityType.skitouring: "Ski touring",
         ActivityType.climbing: "Climbing",
+        ActivityType.swimming: "Swimming",
     }
     return {
         "labels": [type_labels[t] for t in ActivityType],

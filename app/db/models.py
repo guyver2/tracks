@@ -12,10 +12,19 @@ class ActivityType(str, enum.Enum):
     bike = "bike"
     skitouring = "skitouring"
     climbing = "climbing"
+    swimming = "swimming"
 
     @property
     def supports_track(self) -> bool:
-        return self is not ActivityType.climbing
+        return self in {
+            ActivityType.hike,
+            ActivityType.bike,
+            ActivityType.skitouring,
+        }
+
+    @property
+    def supports_manual_stats(self) -> bool:
+        return self is ActivityType.swimming
 
 
 class ObjectiveMetric(str, enum.Enum):
@@ -30,6 +39,7 @@ class ObjectiveActivityType(str, enum.Enum):
     bike = "bike"
     skitouring = "skitouring"
     climbing = "climbing"
+    swimming = "swimming"
     any = "any"
 
 

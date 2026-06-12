@@ -37,6 +37,7 @@ def objective_label(obj: Objective) -> str:
         ObjectiveActivityType.bike: "bike rides",
         ObjectiveActivityType.skitouring: "ski tours",
         ObjectiveActivityType.climbing: "climbing sessions",
+        ObjectiveActivityType.swimming: "swims",
         ObjectiveActivityType.any: "activities",
     }
     metric_units = {
@@ -64,6 +65,8 @@ def compute_progress(db: Session, objective: Objective) -> dict:
         query = query.filter(Activity.activity_type == ActivityType.skitouring)
     elif objective.activity_type == ObjectiveActivityType.climbing:
         query = query.filter(Activity.activity_type == ActivityType.climbing)
+    elif objective.activity_type == ObjectiveActivityType.swimming:
+        query = query.filter(Activity.activity_type == ActivityType.swimming)
 
     activities = query.all()
 

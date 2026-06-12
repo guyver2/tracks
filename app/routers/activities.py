@@ -35,19 +35,66 @@ def _parse_date(value: str) -> date:
         raise HTTPException(status_code=400, detail="Invalid date format") from e
 
 
-def _clear_track_data(activity: Activity) -> None:
+def _clear_gpx_data(activity: Activity) -> None:
     delete_file(GPX_UPLOAD_DIR, activity.gpx_filename)
     activity.gpx_filename = None
-    activity.distance_km = None
-    activity.duration_sec = None
     activity.elevation_gain_m = None
     activity.bounds_json = None
 
 
+def _clear_track_data(activity: Activity) -> None:
+    _clear_gpx_data(activity)
+    activity.distance_km = None
+    activity.duration_sec = None
+
+
+def _parse_optional_float(value: str) -> float | None:
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        parsed = float(value)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid distance") from e
+    if parsed < 0:
+        raise HTTPException(status_code=400, detail="Invalid distance")
+    return round(parsed, 2)
+
+
+def _parse_optional_duration_min(value: str) -> int | None:
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        minutes = int(float(value))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid duration") from e
+    if minutes < 0:
+        raise HTTPException(status_code=400, detail="Invalid duration")
+    return minutes * 60
+
+
+def _apply_manual_stats(activity: Activity, distance_km: str, duration_min: str) -> None:
+    activity.distance_km = _parse_optional_float(distance_km)
+    activity.duration_sec = _parse_optional_duration_min(duration_min)
+
+
 def _apply_activity_type(activity: Activity, activity_type: ActivityType) -> None:
+    had_gpx = bool(activity.gpx_filename)
+    previous_type = activity.activity_type
     activity.activity_type = activity_type
-    if not activity_type.supports_track:
-        _clear_track_data(activity)
+
+    if activity_type.supports_track:
+        return
+
+    _clear_gpx_data(activity)
+
+    if activity_type == ActivityType.climbing:
+        activity.distance_km = None
+        activity.duration_sec = None
+    elif had_gpx or previous_type.supports_track:
+        activity.distance_km = None
+        activity.duration_sec = None
 
 
 def _duplicate_activity(source: Activity) -> Activity:
@@ -143,6 +190,8 @@ async def create_activity(
     activity_date: Annotated[str, Form(alias="date")],
     place: Annotated[str, Form()] = "",
     comment: Annotated[str, Form()] = "",
+    distance_km: Annotated[str, Form()] = "",
+    duration_min: Annotated[str, Form()] = "",
     gpx_file: UploadFile | None = File(None),
     photo_file: UploadFile | None = File(None),
 ):
@@ -159,6 +208,12 @@ async def create_activity(
     )
 
     errors: list[str] = []
+
+    try:
+        if parsed_type.supports_manual_stats:
+            _apply_manual_stats(activity, distance_km, duration_min)
+    except HTTPException as e:
+        errors.append(str(e.detail))
 
     if parsed_type.supports_track and gpx_file and gpx_file.filename:
         try:
@@ -296,6 +351,8 @@ async def update_activity(
     activity_date: Annotated[str, Form(alias="date")],
     place: Annotated[str, Form()] = "",
     comment: Annotated[str, Form()] = "",
+    distance_km: Annotated[str, Form()] = "",
+    duration_min: Annotated[str, Form()] = "",
     remove_gpx: Annotated[str, Form()] = "",
     remove_photo: Annotated[str, Form()] = "",
     gpx_file: UploadFile | None = File(None),
@@ -313,6 +370,12 @@ async def update_activity(
     activity.comment = comment.strip() or None
 
     errors: list[str] = []
+
+    try:
+        if parsed_type.supports_manual_stats:
+            _apply_manual_stats(activity, distance_km, duration_min)
+    except HTTPException as e:
+        errors.append(str(e.detail))
 
     if parsed_type.supports_track and remove_gpx == "1":
         _clear_track_data(activity)

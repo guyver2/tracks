@@ -23,6 +23,7 @@
         <option value="bike"{% if objective and objective.activity_type.value == 'bike' %} selected{% endif %}>Bike only</option>
         <option value="skitouring"{% if objective and objective.activity_type.value == 'skitouring' %} selected{% endif %}>Ski touring only</option>
         <option value="climbing"{% if objective and objective.activity_type.value == 'climbing' %} selected{% endif %}>Climbing only</option>
+        <option value="swimming"{% if objective and objective.activity_type.value == 'swimming' %} selected{% endif %}>Swimming only</option>
       </select>
     </label>
 
@@ -79,14 +80,25 @@
   const customDates = document.getElementById('custom-dates');
 
   function syncMetrics() {
-    const climbingOnly = typeSelect.value === 'climbing';
+    const type = typeSelect.value;
+    const climbingOnly = type === 'climbing';
+    const noElevation = type === 'climbing' || type === 'swimming';
+
     for (const option of metricSelect.options) {
       if (option.dataset.trackMetric) {
         option.hidden = climbingOnly;
         option.disabled = climbingOnly;
       }
+      if (option.value === 'elevation_gain_m') {
+        option.hidden = noElevation;
+        option.disabled = noElevation;
+      }
     }
+
     if (climbingOnly && metricSelect.value !== 'activity_count') {
+      metricSelect.value = 'activity_count';
+    }
+    if (noElevation && metricSelect.value === 'elevation_gain_m') {
       metricSelect.value = 'activity_count';
     }
   }

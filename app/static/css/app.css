@@ -13,6 +13,7 @@
   --bike: #5b8dee;
   --skitouring: #e8a64c;
   --climbing: #c96a8e;
+  --swimming: #4dc8e8;
   --nav-height: 56px;
   --bottom-nav-height: 64px;
   --radius: 8px;
@@ -305,6 +306,11 @@ a:hover {
 .badge-climbing {
   background: color-mix(in srgb, var(--climbing) 20%, var(--surface));
   color: var(--climbing);
+}
+
+.badge-swimming {
+  background: color-mix(in srgb, var(--swimming) 20%, var(--surface));
+  color: var(--swimming);
 }
 
 /* Stats */

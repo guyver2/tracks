@@ -38,6 +38,11 @@ def _validate_objective(activity_type: ObjectiveActivityType, metric: ObjectiveM
             status_code=400,
             detail="Climbing objectives only support activity count",
         )
+    if activity_type == ObjectiveActivityType.swimming and metric == ObjectiveMetric.elevation_gain_m:
+        raise HTTPException(
+            status_code=400,
+            detail="Swimming objectives do not support elevation",
+        )
 
 
 @router.get("", response_class=HTMLResponse)

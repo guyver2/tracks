@@ -75,6 +75,13 @@
 </div>
 {% else %}
 <div class="detail-layout detail-layout-simple">
+  {% if activity.activity_type.supports_manual_stats %}
+  <div class="stat-grid stat-grid-2">
+    {{ stat_card('Distance', activity.distance_km or '—', 'km' if activity.distance_km else '') }}
+    {{ stat_card('Duration', format_duration(activity.duration_sec)) }}
+  </div>
+  {% endif %}
+
   {% if activity.photo_filename %}
   <section class="card detail-photo-card">
     <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Activity photo" class="activity-photo">
@@ -88,7 +95,7 @@
   </section>
   {% endif %}
 
-  {% if not activity.photo_filename and not activity.comment %}
+  {% if activity.activity_type.value == 'climbing' and not activity.photo_filename and not activity.comment %}
   <p class="text-dim">No photo or notes for this session.</p>
   {% endif %}
 </div>
