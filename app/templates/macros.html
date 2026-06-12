@@ -9,7 +9,8 @@
 {% endmacro %}
 
 {% macro type_badge(activity_type) %}
-<span class="badge badge-{{ activity_type.value }}">{{ activity_type.value }}</span>
+{% set labels = {'hike': 'Hike', 'bike': 'Bike', 'skitouring': 'Ski touring', 'climbing': 'Climbing'} %}
+<span class="badge badge-{{ activity_type.value }}">{{ labels.get(activity_type.value, activity_type.value) }}</span>
 {% endmacro %}
 
 {% macro stat_card(label, value, unit='') %}

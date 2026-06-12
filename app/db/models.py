@@ -10,17 +10,26 @@ from app.db.base import Base
 class ActivityType(str, enum.Enum):
     hike = "hike"
     bike = "bike"
+    skitouring = "skitouring"
+    climbing = "climbing"
+
+    @property
+    def supports_track(self) -> bool:
+        return self is not ActivityType.climbing
 
 
 class ObjectiveMetric(str, enum.Enum):
     distance_km = "distance_km"
     duration_hours = "duration_hours"
+    elevation_gain_m = "elevation_gain_m"
     activity_count = "activity_count"
 
 
 class ObjectiveActivityType(str, enum.Enum):
     hike = "hike"
     bike = "bike"
+    skitouring = "skitouring"
+    climbing = "climbing"
     any = "any"
 
 

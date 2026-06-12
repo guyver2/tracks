@@ -11,6 +11,8 @@
   --error: #e05c6e;
   --hike: #43c78a;
   --bike: #5b8dee;
+  --skitouring: #e8a64c;
+  --climbing: #c96a8e;
   --nav-height: 56px;
   --bottom-nav-height: 64px;
   --radius: 8px;
@@ -293,6 +295,16 @@ a:hover {
 .badge-bike {
   background: color-mix(in srgb, var(--bike) 20%, var(--surface));
   color: var(--bike);
+}
+
+.badge-skitouring {
+  background: color-mix(in srgb, var(--skitouring) 20%, var(--surface));
+  color: var(--skitouring);
+}
+
+.badge-climbing {
+  background: color-mix(in srgb, var(--climbing) 20%, var(--surface));
+  color: var(--climbing);
 }
 
 /* Stats */
@@ -582,6 +594,15 @@ input[type="file"] {
   border-radius: var(--radius);
 }
 
+.detail-layout-simple {
+  max-width: 720px;
+}
+
+.detail-photo-card {
+  padding: 0;
+  overflow: hidden;
+}
+
 @media (min-width: 701px) {
   .detail-layout {
     flex-direction: row;
@@ -727,6 +748,111 @@ input[type="file"] {
   position: relative;
   width: 100%;
   height: 220px;
+}
+
+/* Elevation profile */
+.elevation-chart-card {
+  margin-top: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.elevation-chart-card .section-title {
+  margin: 0 0 0.75rem;
+}
+
+.elevation-chart-container {
+  position: relative;
+  width: 100%;
+  height: 160px;
+}
+
+@media (min-width: 701px) {
+  .elevation-chart-container {
+    height: 200px;
+  }
+}
+
+/* Activity calendar */
+.activity-calendar {
+  margin-top: 1.5rem;
+}
+
+.activity-calendar-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.activity-calendar-header .section-title {
+  margin: 0;
+}
+
+.activity-calendar-range {
+  font-size: 0.85rem;
+}
+
+.activity-calendar-summary {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.calendar-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+
+.calendar-layout {
+  display: inline-block;
+  min-width: min(100%, calc(var(--calendar-weeks) * 15px));
+}
+
+.calendar-month-labels {
+  display: grid;
+  grid-template-columns: repeat(var(--calendar-weeks), 12px);
+  gap: 3px;
+  margin-bottom: 4px;
+  height: 14px;
+  position: relative;
+}
+
+.calendar-month-label {
+  grid-column: calc(var(--col) + 1);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 12px);
+  grid-auto-flow: column;
+  grid-auto-columns: 12px;
+  gap: 3px;
+}
+
+.calendar-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: block;
+}
+
+.calendar-cell.empty {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.calendar-cell.active {
+  background: var(--success);
+  border: 1px solid var(--success);
 }
 
 

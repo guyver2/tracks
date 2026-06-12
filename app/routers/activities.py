@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 from app.config import GPX_UPLOAD_DIR, PHOTO_UPLOAD_DIR
 from app.db.models import Activity, ActivityType
 from app.db.session import get_db
-from app.services.gpx import bounds_to_json, gpx_to_geojson, parse_gpx_file
+from app.services.gpx import bounds_to_json, build_elevation_profile, gpx_to_geojson, parse_gpx_file
 from app.services.uploads import delete_file, save_gpx, save_photo
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+
+VALID_ACTIVITY_TYPES = frozenset(t.value for t in ActivityType)
 
 
 def _get_activity_or_404(db: Session, activity_id: int) -> Activity:
@@ -33,6 +35,35 @@ def _parse_date(value: str) -> date:
         raise HTTPException(status_code=400, detail="Invalid date format") from e
 
 
+def _clear_track_data(activity: Activity) -> None:
+    delete_file(GPX_UPLOAD_DIR, activity.gpx_filename)
+    activity.gpx_filename = None
+    activity.distance_km = None
+    activity.duration_sec = None
+    activity.elevation_gain_m = None
+    activity.bounds_json = None
+
+
+def _apply_activity_type(activity: Activity, activity_type: ActivityType) -> None:
+    activity.activity_type = activity_type
+    if not activity_type.supports_track:
+        _clear_track_data(activity)
+
+
+def _duplicate_activity(source: Activity) -> Activity:
+    return Activity(
+        name=source.name,
+        activity_type=source.activity_type,
+        date=date.today(),
+        place=source.place,
+        comment=source.comment,
+        distance_km=source.distance_km,
+        duration_sec=source.duration_sec,
+        elevation_gain_m=source.elevation_gain_m,
+        bounds_json=source.bounds_json,
+    )
+
+
 @router.get("", response_class=HTMLResponse)
 def list_activities(
     request: Request,
@@ -43,7 +74,7 @@ def list_activities(
 ):
     query = db.query(Activity).order_by(desc(Activity.date), desc(Activity.id))
 
-    if activity_type in ("hike", "bike"):
+    if activity_type in VALID_ACTIVITY_TYPES:
         query = query.filter(Activity.activity_type == ActivityType(activity_type))
     if date_from:
         query = query.filter(Activity.date >= _parse_date(date_from))
@@ -76,6 +107,7 @@ def new_activity_form(request: Request):
             "request": request,
             "active_nav": "activities",
             "activity": None,
+            "default_date": date.today().isoformat(),
             "form_action": "/activities",
             "form_method": "post",
         },
@@ -114,12 +146,13 @@ async def create_activity(
     gpx_file: UploadFile | None = File(None),
     photo_file: UploadFile | None = File(None),
 ):
-    if activity_type not in ("hike", "bike"):
+    if activity_type not in VALID_ACTIVITY_TYPES:
         raise HTTPException(status_code=400, detail="Invalid activity type")
 
+    parsed_type = ActivityType(activity_type)
     activity = Activity(
         name=name.strip(),
-        activity_type=ActivityType(activity_type),
+        activity_type=parsed_type,
         date=_parse_date(activity_date),
         place=place.strip(),
         comment=comment.strip() or None,
@@ -127,7 +160,7 @@ async def create_activity(
 
     errors: list[str] = []
 
-    if gpx_file and gpx_file.filename:
+    if parsed_type.supports_track and gpx_file and gpx_file.filename:
         try:
             activity.gpx_filename = await save_gpx(gpx_file)
             stats = parse_gpx_file(GPX_UPLOAD_DIR / activity.gpx_filename)
@@ -155,6 +188,7 @@ async def create_activity(
                 "request": request,
                 "active_nav": "activities",
                 "activity": activity,
+                "default_date": date.today().isoformat(),
                 "form_action": "/activities",
                 "form_method": "post",
                 "errors": errors,
@@ -207,6 +241,30 @@ def activity_geojson(activity_id: int, db: Annotated[Session, Depends(get_db)]):
     return JSONResponse(gpx_to_geojson(path))
 
 
+@router.get("/{activity_id}/elevation.json")
+def activity_elevation(activity_id: int, db: Annotated[Session, Depends(get_db)]):
+    activity = _get_activity_or_404(db, activity_id)
+    if not activity.gpx_filename:
+        raise HTTPException(status_code=404, detail="No GPX for this activity")
+    path = GPX_UPLOAD_DIR / activity.gpx_filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="GPX file missing")
+    return JSONResponse(build_elevation_profile(path))
+
+
+@router.post("/{activity_id}/duplicate")
+def duplicate_activity(
+    activity_id: int,
+    db: Annotated[Session, Depends(get_db)],
+):
+    source = _get_activity_or_404(db, activity_id)
+    duplicate = _duplicate_activity(source)
+    db.add(duplicate)
+    db.commit()
+    db.refresh(duplicate)
+    return RedirectResponse(url=f"/activities/{duplicate.id}/edit", status_code=303)
+
+
 @router.get("/{activity_id}/edit", response_class=HTMLResponse)
 def edit_activity_form(
     request: Request,
@@ -221,6 +279,7 @@ def edit_activity_form(
             "request": request,
             "active_nav": "activities",
             "activity": activity,
+            "default_date": date.today().isoformat(),
             "form_action": f"/activities/{activity_id}",
             "form_method": "post",
         },
@@ -243,26 +302,22 @@ async def update_activity(
     photo_file: UploadFile | None = File(None),
 ):
     activity = _get_activity_or_404(db, activity_id)
-    if activity_type not in ("hike", "bike"):
+    if activity_type not in VALID_ACTIVITY_TYPES:
         raise HTTPException(status_code=400, detail="Invalid activity type")
 
     activity.name = name.strip()
-    activity.activity_type = ActivityType(activity_type)
+    parsed_type = ActivityType(activity_type)
+    _apply_activity_type(activity, parsed_type)
     activity.date = _parse_date(activity_date)
     activity.place = place.strip()
     activity.comment = comment.strip() or None
 
     errors: list[str] = []
 
-    if remove_gpx == "1":
-        delete_file(GPX_UPLOAD_DIR, activity.gpx_filename)
-        activity.gpx_filename = None
-        activity.distance_km = None
-        activity.duration_sec = None
-        activity.elevation_gain_m = None
-        activity.bounds_json = None
+    if parsed_type.supports_track and remove_gpx == "1":
+        _clear_track_data(activity)
 
-    if gpx_file and gpx_file.filename:
+    if parsed_type.supports_track and gpx_file and gpx_file.filename:
         delete_file(GPX_UPLOAD_DIR, activity.gpx_filename)
         try:
             activity.gpx_filename = await save_gpx(gpx_file)
@@ -293,6 +348,7 @@ async def update_activity(
                 "request": request,
                 "active_nav": "activities",
                 "activity": activity,
+                "default_date": date.today().isoformat(),
                 "form_action": f"/activities/{activity_id}",
                 "form_method": "post",
                 "errors": errors,

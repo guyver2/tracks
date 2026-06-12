@@ -16,6 +16,8 @@
   {{ stat_card('Total elevation', totals.all.elevation_m, 'm') }}
 </div>
 
+{% include "partials/activity_calendar.html" %}
+
 <div class="chart-grid">
   <div class="chart-card">
     <h2 class="section-title">Distance per month (km)</h2>
@@ -91,7 +93,7 @@ new Chart(document.getElementById('chart-type'), {
     labels: {{ type_labels | safe }},
     datasets: [{
       data: {{ type_distances | safe }},
-      backgroundColor: ['#43c78a', '#5b8dee'],
+      backgroundColor: ['#43c78a', '#5b8dee', '#e8a64c', '#c96a8e'],
     }],
   },
   options: {

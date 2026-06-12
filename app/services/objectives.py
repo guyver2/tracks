@@ -29,16 +29,23 @@ def objective_label(obj: Objective) -> str:
     metric_labels = {
         ObjectiveMetric.distance_km: "Distance",
         ObjectiveMetric.duration_hours: "Duration",
+        ObjectiveMetric.elevation_gain_m: "Elevation",
         ObjectiveMetric.activity_count: "Activities",
     }
     type_labels = {
         ObjectiveActivityType.hike: "hikes",
         ObjectiveActivityType.bike: "bike rides",
+        ObjectiveActivityType.skitouring: "ski tours",
+        ObjectiveActivityType.climbing: "climbing sessions",
         ObjectiveActivityType.any: "activities",
     }
-    unit = "km" if obj.metric == ObjectiveMetric.distance_km else (
-        "h" if obj.metric == ObjectiveMetric.duration_hours else ""
-    )
+    metric_units = {
+        ObjectiveMetric.distance_km: "km",
+        ObjectiveMetric.duration_hours: "h",
+        ObjectiveMetric.elevation_gain_m: "m",
+        ObjectiveMetric.activity_count: "",
+    }
+    unit = metric_units[obj.metric]
     target = f"{obj.target_value:g}{unit}"
     return f"{target} {type_labels[obj.activity_type]} ({obj.period.value})"
 
@@ -53,6 +60,10 @@ def compute_progress(db: Session, objective: Objective) -> dict:
         query = query.filter(Activity.activity_type == ActivityType.hike)
     elif objective.activity_type == ObjectiveActivityType.bike:
         query = query.filter(Activity.activity_type == ActivityType.bike)
+    elif objective.activity_type == ObjectiveActivityType.skitouring:
+        query = query.filter(Activity.activity_type == ActivityType.skitouring)
+    elif objective.activity_type == ObjectiveActivityType.climbing:
+        query = query.filter(Activity.activity_type == ActivityType.climbing)
 
     activities = query.all()
 
@@ -60,6 +71,8 @@ def compute_progress(db: Session, objective: Objective) -> dict:
         current = float(len(activities))
     elif objective.metric == ObjectiveMetric.distance_km:
         current = sum(a.distance_km or 0 for a in activities)
+    elif objective.metric == ObjectiveMetric.elevation_gain_m:
+        current = sum(a.elevation_gain_m or 0 for a in activities)
     else:
         current = sum((a.duration_sec or 0) for a in activities) / 3600
 

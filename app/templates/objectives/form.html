@@ -16,20 +16,23 @@
 
   <div class="form-grid">
     <label class="form-field">
-      <span class="field-label">Metric</span>
-      <select name="metric" required>
-        <option value="distance_km"{% if objective and objective.metric.value == 'distance_km' %} selected{% endif %}>Distance (km)</option>
-        <option value="duration_hours"{% if objective and objective.metric.value == 'duration_hours' %} selected{% endif %}>Duration (hours)</option>
-        <option value="activity_count"{% if objective and objective.metric.value == 'activity_count' %} selected{% endif %}>Activity count</option>
+      <span class="field-label">Activity type</span>
+      <select name="activity_type" id="activity-type-select" required>
+        <option value="any"{% if objective and objective.activity_type.value == 'any' %} selected{% endif %}>Any</option>
+        <option value="hike"{% if objective and objective.activity_type.value == 'hike' %} selected{% endif %}>Hikes only</option>
+        <option value="bike"{% if objective and objective.activity_type.value == 'bike' %} selected{% endif %}>Bike only</option>
+        <option value="skitouring"{% if objective and objective.activity_type.value == 'skitouring' %} selected{% endif %}>Ski touring only</option>
+        <option value="climbing"{% if objective and objective.activity_type.value == 'climbing' %} selected{% endif %}>Climbing only</option>
       </select>
     </label>
 
     <label class="form-field">
-      <span class="field-label">Activity type</span>
-      <select name="activity_type" required>
-        <option value="any"{% if objective and objective.activity_type.value == 'any' %} selected{% endif %}>Any</option>
-        <option value="hike"{% if objective and objective.activity_type.value == 'hike' %} selected{% endif %}>Hikes only</option>
-        <option value="bike"{% if objective and objective.activity_type.value == 'bike' %} selected{% endif %}>Bike only</option>
+      <span class="field-label">Metric</span>
+      <select name="metric" id="metric-select" required>
+        <option value="distance_km" data-track-metric="1"{% if objective and objective.metric.value == 'distance_km' %} selected{% endif %}>Distance (km)</option>
+        <option value="duration_hours" data-track-metric="1"{% if objective and objective.metric.value == 'duration_hours' %} selected{% endif %}>Duration (hours)</option>
+        <option value="elevation_gain_m" data-track-metric="1"{% if objective and objective.metric.value == 'elevation_gain_m' %} selected{% endif %}>Elevation (m)</option>
+        <option value="activity_count"{% if objective and objective.metric.value == 'activity_count' %} selected{% endif %}>Activity count</option>
       </select>
     </label>
 
@@ -69,9 +72,31 @@
 </form>
 
 <script>
-document.getElementById('period-select').addEventListener('change', function () {
-  document.getElementById('custom-dates').style.display =
-    this.value === 'custom' ? 'grid' : 'none';
-});
+(function () {
+  const typeSelect = document.getElementById('activity-type-select');
+  const metricSelect = document.getElementById('metric-select');
+  const periodSelect = document.getElementById('period-select');
+  const customDates = document.getElementById('custom-dates');
+
+  function syncMetrics() {
+    const climbingOnly = typeSelect.value === 'climbing';
+    for (const option of metricSelect.options) {
+      if (option.dataset.trackMetric) {
+        option.hidden = climbingOnly;
+        option.disabled = climbingOnly;
+      }
+    }
+    if (climbingOnly && metricSelect.value !== 'activity_count') {
+      metricSelect.value = 'activity_count';
+    }
+  }
+
+  typeSelect.addEventListener('change', syncMetrics);
+  periodSelect.addEventListener('change', function () {
+    customDates.style.display = this.value === 'custom' ? 'grid' : 'none';
+  });
+
+  syncMetrics();
+})();
 </script>
 {% endblock %}

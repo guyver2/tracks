@@ -22,15 +22,17 @@
 
     <label class="form-field">
       <span class="field-label">Type</span>
-      <select name="activity_type" required>
+      <select name="activity_type" id="activity-type-select" required>
         <option value="hike"{% if activity and activity.activity_type.value == 'hike' %} selected{% endif %}>Hike</option>
         <option value="bike"{% if activity and activity.activity_type.value == 'bike' %} selected{% endif %}>Bike</option>
+        <option value="skitouring"{% if activity and activity.activity_type.value == 'skitouring' %} selected{% endif %}>Ski touring</option>
+        <option value="climbing"{% if activity and activity.activity_type.value == 'climbing' %} selected{% endif %}>Climbing</option>
       </select>
     </label>
 
     <label class="form-field">
       <span class="field-label">Date</span>
-      <input type="date" name="date" required value="{{ activity.date.isoformat() if activity else '' }}">
+      <input type="date" name="date" required value="{{ activity.date.isoformat() if activity else default_date }}">
     </label>
 
     <label class="form-field">
@@ -44,7 +46,7 @@
     <textarea name="comment" rows="4" placeholder="Optional notes">{{ activity.comment if activity and activity.comment else '' }}</textarea>
   </label>
 
-  <label class="form-field">
+  <label class="form-field" id="gpx-field">
     <span class="field-label">GPX trace</span>
     <input type="file" name="gpx_file" accept=".gpx"
            hx-post="/activities/preview-gpx"
@@ -77,4 +79,20 @@
     <a href="{% if activity %}/activities/{{ activity.id }}{% else %}/activities{% endif %}" class="btn btn-secondary">Cancel</a>
   </div>
 </form>
+
+<script>
+(function () {
+  const typeSelect = document.getElementById('activity-type-select');
+  const gpxField = document.getElementById('gpx-field');
+  const trackTypes = new Set(['hike', 'bike', 'skitouring']);
+
+  function toggleGpxField() {
+    const showTrack = trackTypes.has(typeSelect.value);
+    gpxField.hidden = !showTrack;
+  }
+
+  typeSelect.addEventListener('change', toggleGpxField);
+  toggleGpxField();
+})();
+</script>
 {% endblock %}

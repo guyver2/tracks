@@ -11,7 +11,14 @@ from sqlalchemy.orm import Session
 from app.db.models import Activity
 from app.db.session import get_db
 from app.services.objectives import all_objectives_with_progress
-from app.services.stats import get_monthly_series, get_period_totals, get_totals, get_type_breakdown, month_bounds
+from app.services.stats import (
+    get_activity_calendar,
+    get_monthly_series,
+    get_period_totals,
+    get_totals,
+    get_type_breakdown,
+    month_bounds,
+)
 
 router = APIRouter(tags=["pages"])
 
@@ -35,6 +42,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "recent": recent,
             "objectives": objectives,
             "month_label": date.today().strftime("%B %Y"),
+            "calendar": get_activity_calendar(db),
         },
     )
 
@@ -58,6 +66,7 @@ def stats_page(request: Request, db: Session = Depends(get_db)):
             "type_labels": json.dumps(breakdown["labels"]),
             "type_counts": json.dumps(breakdown["counts"]),
             "type_distances": json.dumps(breakdown["distances"]),
+            "calendar": get_activity_calendar(db),
         },
     )
 

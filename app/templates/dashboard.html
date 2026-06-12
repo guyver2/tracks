@@ -16,7 +16,11 @@
 <div class="stat-grid stat-grid-2 dashboard-stats">
   {{ stat_card('Hikes', totals.hike.count) }}
   {{ stat_card('Bike rides', totals.bike.count) }}
+  {{ stat_card('Ski touring', totals.skitouring.count) }}
+  {{ stat_card('Climbing', totals.climbing.count) }}
 </div>
+
+{% include "partials/activity_calendar.html" %}
 
 {% if objectives %}
 <section class="section">

@@ -5,7 +5,12 @@
   const geojsonUrl = mapEl.dataset.geojsonUrl;
   const activityType = mapEl.dataset.activityType || "hike";
   const place = mapEl.dataset.place || "";
-  const traceColor = activityType === "bike" ? "#5b8dee" : "#43c78a";
+  const traceColors = {
+    hike: "#43c78a",
+    bike: "#5b8dee",
+    skitouring: "#e8a64c",
+  };
+  const traceColor = traceColors[activityType] || traceColors.hike;
 
   const map = L.map(mapEl, { scrollWheelZoom: false });
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

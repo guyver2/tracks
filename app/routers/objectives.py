@@ -32,6 +32,14 @@ def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
+def _validate_objective(activity_type: ObjectiveActivityType, metric: ObjectiveMetric) -> None:
+    if activity_type == ObjectiveActivityType.climbing and metric != ObjectiveMetric.activity_count:
+        raise HTTPException(
+            status_code=400,
+            detail="Climbing objectives only support activity count",
+        )
+
+
 @router.get("", response_class=HTMLResponse)
 def list_objectives(request: Request, db: Annotated[Session, Depends(get_db)]):
     items = all_objectives_with_progress(db)
@@ -74,9 +82,13 @@ def create_objective(
     else:
         start, end = period_dates(ObjectivePeriod(period))
 
+    parsed_type = ObjectiveActivityType(activity_type)
+    parsed_metric = ObjectiveMetric(metric)
+    _validate_objective(parsed_type, parsed_metric)
+
     obj = Objective(
-        metric=ObjectiveMetric(metric),
-        activity_type=ObjectiveActivityType(activity_type),
+        metric=parsed_metric,
+        activity_type=parsed_type,
         target_value=target_value,
         period=ObjectivePeriod(period),
         start_date=start,
@@ -128,8 +140,12 @@ def update_objective(
     else:
         start, end = period_dates(ObjectivePeriod(period))
 
-    obj.metric = ObjectiveMetric(metric)
-    obj.activity_type = ObjectiveActivityType(activity_type)
+    parsed_type = ObjectiveActivityType(activity_type)
+    parsed_metric = ObjectiveMetric(metric)
+    _validate_objective(parsed_type, parsed_metric)
+
+    obj.metric = parsed_metric
+    obj.activity_type = parsed_type
     obj.target_value = target_value
     obj.period = ObjectivePeriod(period)
     obj.start_date = start

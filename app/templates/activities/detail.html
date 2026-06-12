@@ -4,7 +4,10 @@
 {% block title %}{{ activity.name }} — Tracks{% endblock %}
 
 {% block head %}
+{% if activity.activity_type.supports_track %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -19,6 +22,9 @@
   </div>
   <div class="header-actions">
     <a href="/activities/{{ activity.id }}/edit" class="btn btn-secondary">Edit</a>
+    <form method="post" action="/activities/{{ activity.id }}/duplicate" class="inline-form">
+      <button type="submit" class="btn btn-secondary">Duplicate</button>
+    </form>
     <form method="post" action="/activities/{{ activity.id }}/delete" class="inline-form"
           onsubmit="return confirm('Delete this activity?')">
       <button type="submit" class="btn btn-danger">Delete</button>
@@ -26,12 +32,20 @@
   </div>
 </div>
 
+{% if activity.activity_type.supports_track %}
 <div class="detail-layout">
   <div class="detail-map-section">
     <div id="map" class="map-container"
          data-geojson-url="{% if has_gpx %}/activities/{{ activity.id }}/gpx.geojson{% endif %}"
+         data-elevation-url="{% if has_gpx %}/activities/{{ activity.id }}/elevation.json{% endif %}"
          data-activity-type="{{ activity.activity_type.value }}"
          data-place="{{ activity.place or '' }}"></div>
+    <div id="elevation-chart-card" class="elevation-chart-card" hidden>
+      <h2 class="section-title">Elevation profile</h2>
+      <div class="elevation-chart-container">
+        <canvas id="elevation-chart"></canvas>
+      </div>
+    </div>
     {% if not has_gpx and not activity.place %}
     <p class="text-dim map-fallback">No map data — add a GPX trace or place name.</p>
     {% endif %}
@@ -59,9 +73,32 @@
     {% endif %}
   </div>
 </div>
+{% else %}
+<div class="detail-layout detail-layout-simple">
+  {% if activity.photo_filename %}
+  <section class="card detail-photo-card">
+    <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Activity photo" class="activity-photo">
+  </section>
+  {% endif %}
+
+  {% if activity.comment %}
+  <section class="card">
+    <h2 class="section-title">Comment</h2>
+    <p>{{ activity.comment }}</p>
+  </section>
+  {% endif %}
+
+  {% if not activity.photo_filename and not activity.comment %}
+  <p class="text-dim">No photo or notes for this session.</p>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if activity.activity_type.supports_track %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/js/map.js"></script>
+<script src="/static/js/elevation.js"></script>
+{% endif %}
 {% endblock %}

@@ -26,10 +26,7 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return r * 2 * math.asin(math.sqrt(a))
 
 
-def parse_gpx_file(path: Path) -> GpxStats:
-    with path.open("r", encoding="utf-8") as f:
-        gpx = gpxpy.parse(f)
-
+def _extract_points(gpx) -> list[tuple[float, float, float | None]]:
     points: list[tuple[float, float, float | None]] = []
     for track in gpx.tracks:
         for segment in track.segments:
@@ -42,6 +39,13 @@ def parse_gpx_file(path: Path) -> GpxStats:
 
     if not points:
         raise ValueError("GPX file contains no track points")
+    return points
+
+
+def parse_gpx_file(path: Path) -> GpxStats:
+    with path.open("r", encoding="utf-8") as f:
+        gpx = gpxpy.parse(f)
+    points = _extract_points(gpx)
 
     distance_m = 0.0
     elevation_gain = 0.0
@@ -97,3 +101,52 @@ def gpx_to_geojson(path: Path) -> dict:
 
 def bounds_to_json(bounds: dict[str, float]) -> str:
     return json.dumps(bounds)
+
+
+_MAX_PROFILE_POINTS = 300
+
+
+def _downsample_profile(distances_km: list[float], elevations_m: list[float | None]) -> tuple[list[float], list[float | None]]:
+    n = len(distances_km)
+    if n <= _MAX_PROFILE_POINTS:
+        return distances_km, elevations_m
+    step = (n - 1) / (_MAX_PROFILE_POINTS - 1)
+    indices = [round(i * step) for i in range(_MAX_PROFILE_POINTS)]
+    indices[-1] = n - 1
+    return (
+        [distances_km[i] for i in indices],
+        [elevations_m[i] for i in indices],
+    )
+
+
+def _load_gpx_points(path: Path) -> list[tuple[float, float, float | None]]:
+    with path.open("r", encoding="utf-8") as f:
+        gpx = gpxpy.parse(f)
+    return _extract_points(gpx)
+
+
+def build_elevation_profile(path: Path) -> dict:
+    points = _load_gpx_points(path)
+
+    distances_km: list[float] = [0.0]
+    elevations_m: list[float | None] = [points[0][2]]
+    distance_m = 0.0
+
+    for i in range(1, len(points)):
+        lat, lon, elev = points[i]
+        prev_lat, prev_lon, _ = points[i - 1]
+        distance_m += _haversine_km(prev_lat, prev_lon, lat, lon) * 1000
+        distances_km.append(round(distance_m / 1000, 3))
+        elevations_m.append(elev)
+
+    has_elevation = any(e is not None for e in elevations_m)
+    if not has_elevation:
+        return {"has_elevation": False, "distances_km": [], "elevations_m": []}
+
+    distances_km, elevations_m = _downsample_profile(distances_km, elevations_m)
+    return {
+        "has_elevation": True,
+        "distances_km": distances_km,
+        "elevations_m": elevations_m,
+        "distance_km": round(distance_m / 1000, 2),
+    }

@@ -1,0 +1,27 @@
+<section class="card activity-calendar">
+  <div class="activity-calendar-header">
+    <h2 class="section-title">Activity calendar</h2>
+    <span class="text-dim activity-calendar-range">{{ calendar.range_label }}</span>
+  </div>
+  <p class="activity-calendar-summary">
+    {{ calendar.total_active_days }} active {{ 'day' if calendar.total_active_days == 1 else 'days' }} in the last year
+  </p>
+  <div class="calendar-scroll">
+    <div class="calendar-layout" style="--calendar-weeks: {{ calendar.weeks }}">
+      <div class="calendar-month-labels" aria-hidden="true">
+        {% for label in calendar.month_labels %}
+        <span class="calendar-month-label" style="--col: {{ label.col }}">{{ label.label }}</span>
+        {% endfor %}
+      </div>
+      <div class="calendar-grid">
+        {% for cell in calendar.cells %}
+        <span
+          class="calendar-cell{% if cell.active %} active{% else %} empty{% endif %}{% if cell.is_today %} calendar-cell-today{% endif %}"
+          title="{{ cell.date.isoformat() }} — {% if cell.count == 1 %}1 activity{% elif cell.count > 1 %}{{ cell.count }} activities{% else %}no activity{% endif %}"
+        ></span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <script src="/static/js/activity_calendar.js" defer></script>
+</section>
