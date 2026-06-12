@@ -1,0 +1,12 @@
+{% if stats %}
+<div class="gpx-preview">
+  <div class="preview-title">GPX preview</div>
+  <div class="stat-grid stat-grid-3">
+    <div><span class="stat-label">Distance</span> {{ stats.distance_km }} km</div>
+    <div><span class="stat-label">Duration</span> {% if stats.duration_sec %}{{ (stats.duration_sec // 3600)|int }}h {{ ((stats.duration_sec % 3600) // 60)|int }}m{% else %}—{% endif %}</div>
+    <div><span class="stat-label">Elevation</span> {{ stats.elevation_gain_m }} m</div>
+  </div>
+</div>
+{% elif error %}
+<div class="form-error">{{ error }}</div>
+{% endif %}

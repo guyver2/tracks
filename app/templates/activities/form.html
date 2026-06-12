@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{% if activity %}Edit{% else %}New{% endif %} activity — Tracks{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{% if activity %}Edit activity{% else %}New activity{% endif %}</h1>
+</div>
+
+{% if errors %}
+<div class="flash flash-error">
+  {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<form class="activity-form" method="post" action="{{ form_action }}" enctype="multipart/form-data">
+  <div class="form-grid">
+    <label class="form-field">
+      <span class="field-label">Name</span>
+      <input type="text" name="name" required value="{{ activity.name if activity else '' }}">
+    </label>
+
+    <label class="form-field">
+      <span class="field-label">Type</span>
+      <select name="activity_type" required>
+        <option value="hike"{% if activity and activity.activity_type.value == 'hike' %} selected{% endif %}>Hike</option>
+        <option value="bike"{% if activity and activity.activity_type.value == 'bike' %} selected{% endif %}>Bike</option>
+      </select>
+    </label>
+
+    <label class="form-field">
+      <span class="field-label">Date</span>
+      <input type="date" name="date" required value="{{ activity.date.isoformat() if activity else '' }}">
+    </label>
+
+    <label class="form-field">
+      <span class="field-label">Place</span>
+      <input type="text" name="place" value="{{ activity.place if activity else '' }}" placeholder="e.g. Mont Blanc">
+    </label>
+  </div>
+
+  <label class="form-field">
+    <span class="field-label">Comment</span>
+    <textarea name="comment" rows="4" placeholder="Optional notes">{{ activity.comment if activity and activity.comment else '' }}</textarea>
+  </label>
+
+  <label class="form-field">
+    <span class="field-label">GPX trace</span>
+    <input type="file" name="gpx_file" accept=".gpx"
+           hx-post="/activities/preview-gpx"
+           hx-target="#gpx-preview"
+           hx-encoding="multipart/form-data"
+           hx-trigger="change">
+    {% if activity and activity.gpx_filename %}
+    <label class="checkbox-label">
+      <input type="checkbox" name="remove_gpx" value="1"> Remove current GPX
+    </label>
+    {% endif %}
+    <div id="gpx-preview"></div>
+  </label>
+
+  <label class="form-field">
+    <span class="field-label">Photo</span>
+    <input type="file" name="photo_file" accept="image/jpeg,image/png,image/webp">
+    {% if activity and activity.photo_filename %}
+    <div class="current-photo">
+      <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Current photo" class="thumb">
+      <label class="checkbox-label">
+        <input type="checkbox" name="remove_photo" value="1"> Remove current photo
+      </label>
+    </div>
+    {% endif %}
+  </label>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% if activity %}/activities/{{ activity.id }}{% else %}/activities{% endif %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

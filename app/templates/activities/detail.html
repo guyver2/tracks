@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "macros.html" import format_duration, type_badge, stat_card %}
+
+{% block title %}{{ activity.name }} — Tracks{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ activity.name }}</h1>
+    <div class="detail-meta">
+      {{ type_badge(activity.activity_type) }}
+      <span>{{ activity.date.isoformat() }}</span>
+      {% if activity.place %}<span>{{ activity.place }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="/activities/{{ activity.id }}/edit" class="btn btn-secondary">Edit</a>
+    <form method="post" action="/activities/{{ activity.id }}/delete" class="inline-form"
+          onsubmit="return confirm('Delete this activity?')">
+      <button type="submit" class="btn btn-danger">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="detail-layout">
+  <div class="detail-map-section">
+    <div id="map" class="map-container"
+         data-geojson-url="{% if has_gpx %}/activities/{{ activity.id }}/gpx.geojson{% endif %}"
+         data-activity-type="{{ activity.activity_type.value }}"
+         data-place="{{ activity.place or '' }}"></div>
+    {% if not has_gpx and not activity.place %}
+    <p class="text-dim map-fallback">No map data — add a GPX trace or place name.</p>
+    {% endif %}
+  </div>
+
+  <div class="detail-side">
+    <div class="stat-grid stat-grid-2">
+      {{ stat_card('Distance', activity.distance_km or '—', 'km' if activity.distance_km else '') }}
+      {{ stat_card('Duration', format_duration(activity.duration_sec)) }}
+      {{ stat_card('Elevation', activity.elevation_gain_m or '—', 'm' if activity.elevation_gain_m else '') }}
+    </div>
+
+    {% if activity.comment %}
+    <section class="card">
+      <h2 class="section-title">Comment</h2>
+      <p>{{ activity.comment }}</p>
+    </section>
+    {% endif %}
+
+    {% if activity.photo_filename %}
+    <section class="card">
+      <h2 class="section-title">Photo</h2>
+      <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Activity photo" class="activity-photo">
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/map.js"></script>
+{% endblock %}

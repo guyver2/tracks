@@ -1,0 +1,20 @@
+{% macro format_duration(seconds) %}
+{% if seconds is none %}
+—
+{% else %}
+{% set h = (seconds // 3600)|int %}
+{% set m = ((seconds % 3600) // 60)|int %}
+{% if h > 0 %}{{ h }}h {% endif %}{{ m }}m
+{% endif %}
+{% endmacro %}
+
+{% macro type_badge(activity_type) %}
+<span class="badge badge-{{ activity_type.value }}">{{ activity_type.value }}</span>
+{% endmacro %}
+
+{% macro stat_card(label, value, unit='') %}
+<div class="stat-card">
+  <div class="stat-label">{{ label }}</div>
+  <div class="stat-value">{{ value }}{% if unit %}<span class="stat-unit">{{ unit }}</span>{% endif %}</div>
+</div>
+{% endmacro %}
