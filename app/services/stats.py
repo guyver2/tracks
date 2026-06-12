@@ -7,18 +7,42 @@ from sqlalchemy.orm import Session
 from app.db.models import Activity, ActivityType
 
 
-def get_totals(db: Session) -> dict:
-    rows = (
+def _apply_activity_filters(
+    query,
+    *,
+    activity_type: ActivityType | None = None,
+    start: date | None = None,
+    end: date | None = None,
+):
+    if activity_type is not None:
+        query = query.filter(Activity.activity_type == activity_type)
+    if start is not None:
+        query = query.filter(Activity.date >= start)
+    if end is not None:
+        query = query.filter(Activity.date <= end)
+    return query
+
+
+def get_totals(
+    db: Session,
+    *,
+    activity_type: ActivityType | None = None,
+    start: date | None = None,
+    end: date | None = None,
+) -> dict:
+    query = _apply_activity_filters(
         db.query(
             Activity.activity_type,
             func.count(Activity.id),
             func.coalesce(func.sum(Activity.distance_km), 0),
             func.coalesce(func.sum(Activity.elevation_gain_m), 0),
             func.coalesce(func.sum(Activity.duration_sec), 0),
-        )
-        .group_by(Activity.activity_type)
-        .all()
+        ),
+        activity_type=activity_type,
+        start=start,
+        end=end,
     )
+    rows = query.group_by(Activity.activity_type).all()
 
     totals = {
         "all": {"count": 0, "distance_km": 0.0, "elevation_m": 0.0, "duration_sec": 0},
@@ -71,19 +95,26 @@ def get_period_totals(db: Session, start: date, end: date) -> dict:
     return result
 
 
-def get_monthly_series(db: Session) -> dict:
-    rows = (
+def get_monthly_series(
+    db: Session,
+    *,
+    activity_type: ActivityType | None = None,
+    start: date | None = None,
+    end: date | None = None,
+) -> dict:
+    query = _apply_activity_filters(
         db.query(
             extract("year", Activity.date).label("year"),
             extract("month", Activity.date).label("month"),
             func.count(Activity.id),
             func.coalesce(func.sum(Activity.distance_km), 0),
             func.coalesce(func.sum(Activity.elevation_gain_m), 0),
-        )
-        .group_by("year", "month")
-        .order_by("year", "month")
-        .all()
+        ),
+        activity_type=activity_type,
+        start=start,
+        end=end,
     )
+    rows = query.group_by("year", "month").order_by("year", "month").all()
 
     labels = []
     counts = []
@@ -104,8 +135,13 @@ def get_monthly_series(db: Session) -> dict:
     }
 
 
-def get_type_breakdown(db: Session) -> dict:
-    totals = get_totals(db)
+def get_type_breakdown(
+    db: Session,
+    *,
+    start: date | None = None,
+    end: date | None = None,
+) -> dict:
+    totals = get_totals(db, start=start, end=end)
     type_labels = {
         ActivityType.hike: "Hikes",
         ActivityType.bike: "Bike rides",
@@ -117,6 +153,10 @@ def get_type_breakdown(db: Session) -> dict:
         "labels": [type_labels[t] for t in ActivityType],
         "counts": [totals[t.value]["count"] for t in ActivityType],
         "distances": [totals[t.value]["distance_km"] for t in ActivityType],
+        "cards": [
+            {"label": type_labels[t], "count": totals[t.value]["count"]}
+            for t in ActivityType
+        ],
     }
 
 
@@ -124,6 +164,31 @@ def month_bounds(reference: date | None = None) -> tuple[date, date]:
     ref = reference or date.today()
     last_day = monthrange(ref.year, ref.month)[1]
     return date(ref.year, ref.month, 1), date(ref.year, ref.month, last_day)
+
+
+def year_bounds(reference: date | None = None) -> tuple[date, date]:
+    ref = reference or date.today()
+    return date(ref.year, 1, 1), date(ref.year, 12, 31)
+
+
+def resolve_date_range(
+    preset: str,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> tuple[date | None, date | None, str]:
+    if preset == "month":
+        start, end = month_bounds()
+        return start, end, f"{start.strftime('%b %Y')}"
+    if preset == "year":
+        start, end = year_bounds()
+        return start, end, str(start.year)
+    if preset == "custom" and date_from and date_to:
+        start, end = date.fromisoformat(date_from), date.fromisoformat(date_to)
+        if start > end:
+            start, end = end, start
+        label = f"{start.isoformat()} – {end.isoformat()}"
+        return start, end, label
+    return None, None, "All time"
 
 
 def get_activity_calendar(db: Session, weeks: int = 52) -> dict:

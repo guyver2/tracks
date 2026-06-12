@@ -9,11 +9,54 @@
 
 {% block content %}
 <h1 class="page-title">Statistics</h1>
+<p class="text-dim page-subtitle">{{ period_label }}</p>
+
+<form class="filter-bar" method="get" action="/stats">
+  <div class="filter-row">
+    <label>
+      <span class="field-label">Activity</span>
+      <select name="activity_type">
+        <option value="">All</option>
+        <option value="hike"{% if filters.activity_type == 'hike' %} selected{% endif %}>Hike</option>
+        <option value="bike"{% if filters.activity_type == 'bike' %} selected{% endif %}>Bike</option>
+        <option value="skitouring"{% if filters.activity_type == 'skitouring' %} selected{% endif %}>Ski touring</option>
+        <option value="climbing"{% if filters.activity_type == 'climbing' %} selected{% endif %}>Climbing</option>
+        <option value="swimming"{% if filters.activity_type == 'swimming' %} selected{% endif %}>Swimming</option>
+      </select>
+    </label>
+    <label>
+      <span class="field-label">Period</span>
+      <select name="preset" id="preset-select">
+        <option value="all"{% if filters.preset == 'all' %} selected{% endif %}>All time</option>
+        <option value="month"{% if filters.preset == 'month' %} selected{% endif %}>This month</option>
+        <option value="year"{% if filters.preset == 'year' %} selected{% endif %}>This year</option>
+        <option value="custom"{% if filters.preset == 'custom' %} selected{% endif %}>Custom range</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-secondary">Apply</button>
+  </div>
+  <div id="custom-dates" class="filter-row" style="{% if filters.preset != 'custom' %}display:none{% endif %}">
+    <label>
+      <span class="field-label">From</span>
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+    <label>
+      <span class="field-label">To</span>
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+  </div>
+</form>
 
 <div class="stat-grid stat-grid-3 dashboard-stats">
   {{ stat_card('Total distance', totals.all.distance_km, 'km') }}
   {{ stat_card('Total activities', totals.all.count) }}
   {{ stat_card('Total elevation', totals.all.elevation_m, 'm') }}
+</div>
+
+<div class="stat-grid stat-grid-3 dashboard-stats">
+  {% for card in type_cards %}
+  {{ stat_card(card.label, card.count) }}
+  {% endfor %}
 </div>
 
 {% include "partials/activity_calendar.html" %}
@@ -48,6 +91,11 @@
 
 {% block scripts %}
 <script>
+document.getElementById('preset-select').addEventListener('change', function () {
+  document.getElementById('custom-dates').style.display =
+    this.value === 'custom' ? 'flex' : 'none';
+});
+
 const chartDefaults = {
   responsive: true,
   maintainAspectRatio: false,

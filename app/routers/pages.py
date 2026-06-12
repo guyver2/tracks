@@ -2,13 +2,13 @@ import json
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.db.models import Activity
+from app.db.models import Activity, ActivityType
 from app.db.session import get_db
 from app.services.objectives import all_objectives_with_progress
 from app.services.stats import (
@@ -18,11 +18,14 @@ from app.services.stats import (
     get_totals,
     get_type_breakdown,
     month_bounds,
+    resolve_date_range,
 )
 
 router = APIRouter(tags=["pages"])
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+
+VALID_ACTIVITY_TYPES = frozenset(t.value for t in ActivityType)
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -48,9 +51,24 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/stats", response_class=HTMLResponse)
-def stats_page(request: Request, db: Session = Depends(get_db)):
-    monthly = get_monthly_series(db)
-    breakdown = get_type_breakdown(db)
+def stats_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    activity_type: str | None = Query(None),
+    preset: str = Query("all"),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
+    start, end, period_label = resolve_date_range(preset, date_from, date_to)
+    parsed_type = (
+        ActivityType(activity_type)
+        if activity_type in VALID_ACTIVITY_TYPES
+        else None
+    )
+
+    monthly = get_monthly_series(db, activity_type=parsed_type, start=start, end=end)
+    breakdown = get_type_breakdown(db, start=start, end=end)
+    totals = get_totals(db, activity_type=parsed_type, start=start, end=end)
 
     return templates.TemplateResponse(
         request,
@@ -58,7 +76,15 @@ def stats_page(request: Request, db: Session = Depends(get_db)):
         {
             "request": request,
             "active_nav": "stats",
-            "totals": get_totals(db),
+            "totals": totals,
+            "type_cards": breakdown["cards"],
+            "period_label": period_label,
+            "filters": {
+                "activity_type": activity_type or "",
+                "preset": preset,
+                "date_from": date_from or "",
+                "date_to": date_to or "",
+            },
             "monthly_labels": json.dumps(monthly["labels"]),
             "monthly_counts": json.dumps(monthly["counts"]),
             "monthly_distances": json.dumps(monthly["distances"]),
