@@ -2,6 +2,16 @@
 
 Self-hosted web app for logging sport activities (hikes and bike rides) with GPX traces, maps, statistics, and goals.
 
+## Screenshots
+
+| Dashboard | Activity detail |
+| --- | --- |
+| ![Dashboard with recent activities, objectives, and activity calendar](screenshots/tracks_home.jpg) | ![Activity detail with map, elevation chart, and stats](screenshots/tracks_activity.jpg) |
+
+| Photo & comment | Statistics |
+| --- | --- |
+| ![Activity with photo, comment, map, and elevation profile](screenshots/tracks_photo.jpg) | ![Statistics dashboard with charts and activity calendar](screenshots/tracks_stats.jpg) |
+
 ## Features
 
 - Log activities with date, place, type, comment, GPX trace, and photo
