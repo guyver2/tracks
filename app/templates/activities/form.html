@@ -2,6 +2,13 @@
 
 {% block title %}{% if activity %}Edit{% else %}New{% endif %} activity — Tracks{% endblock %}
 
+{% block head %}
+{% if activity and track_infos %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">{% if activity %}Edit activity{% else %}New activity{% endif %}</h1>
@@ -61,24 +68,68 @@
     <textarea name="comment" rows="4" placeholder="Optional notes">{{ activity.comment if activity and activity.comment else '' }}</textarea>
   </label>
 
-  <label class="form-field" id="gpx-field">
-    <span class="field-label">GPX trace</span>
-    <input type="file" name="gpx_file" accept=".gpx"
-           hx-post="/activities/preview-gpx"
-           hx-target="#gpx-preview"
-           hx-encoding="multipart/form-data"
-           hx-trigger="change">
-    {% if activity and activity.gpx_filename %}
-    <label class="checkbox-label">
-      <input type="checkbox" name="remove_gpx" value="1"> Remove current GPX
-    </label>
-    {% endif %}
-    <div id="gpx-preview"></div>
-  </label>
+  {% if activity and track_infos %}
+  <section id="track-editor"
+           class="track-editor-panel"
+           data-preview-url="/activities/{{ activity.id }}/tracks-preview.json"
+           data-activity-type="{{ activity.activity_type.value }}">
+    <h2 class="section-title">Track editor</h2>
+    <p class="field-hint">Drag the clip handles to trim stationary start/end sections. Changes preview live; save the form to keep them.</p>
+    <div class="track-editor-preview">
+      <div id="track-editor-map" class="map-container track-editor-map"></div>
+      <div class="track-editor-side">
+        <div class="track-editor-stats stat-grid stat-grid-3">
+          <div class="stat-card">
+            <span class="stat-label">Distance</span>
+            <span class="stat-value" data-stat-distance>{% if activity.distance_km is not none %}{{ activity.distance_km }}{% else %}—{% endif %}</span>
+            <span class="stat-unit" data-stat-distance-unit>{% if activity.distance_km is not none %}km{% endif %}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Duration</span>
+            <span class="stat-value" data-stat-duration>{% if activity.duration_sec is not none %}{{ activity.duration_sec // 3600 }}h {{ (activity.duration_sec % 3600) // 60 }}m{% else %}—{% endif %}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Elevation</span>
+            <span class="stat-value" data-stat-elevation>{% if activity.elevation_gain_m is not none %}{{ activity.elevation_gain_m }}{% else %}—{% endif %}</span>
+            <span class="stat-unit" data-stat-elevation-unit>{% if activity.elevation_gain_m is not none %}m{% endif %}</span>
+          </div>
+        </div>
+        <div class="elevation-chart-card track-editor-chart-card">
+          <h3 class="section-title">Elevation preview</h3>
+          <div class="elevation-chart-container">
+            <canvas id="track-editor-elevation"></canvas>
+          </div>
+          <p id="track-editor-chart-error" class="chart-error" hidden></p>
+        </div>
+      </div>
+    </div>
+    {% include "activities/partials/track_list.html" %}
+  </section>
+  {% endif %}
 
-  <label class="form-field">
+  <div class="form-field" id="gpx-field">
+    <span class="field-label">GPX traces</span>
+    <div class="file-upload">
+      <input type="file" id="gpx-files" class="file-upload-input" name="gpx_files" accept=".gpx" multiple
+             hx-post="/activities/preview-gpx"
+             hx-target="#gpx-preview"
+             hx-encoding="multipart/form-data"
+             hx-trigger="change"
+             hx-include="[name='gpx_files']">
+      <label class="btn btn-secondary file-upload-btn" for="gpx-files">Choose files</label>
+      <span class="file-upload-name" data-file-name-for="gpx-files">No files chosen</span>
+    </div>
+    <span class="field-hint">Select one or more GPX files. On edit, new files are added to existing tracks.</span>
+    <div id="gpx-preview"></div>
+  </div>
+
+  <div class="form-field">
     <span class="field-label">Photo</span>
-    <input type="file" name="photo_file" accept="image/jpeg,image/png,image/webp">
+    <div class="file-upload">
+      <input type="file" id="photo-file" class="file-upload-input" name="photo_file" accept="image/jpeg,image/png,image/webp">
+      <label class="btn btn-secondary file-upload-btn" for="photo-file">Choose image</label>
+      <span class="file-upload-name" data-file-name-for="photo-file">No file chosen</span>
+    </div>
     {% if activity and activity.photo_filename %}
     <div class="current-photo">
       <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Current photo" class="thumb">
@@ -87,7 +138,7 @@
       </label>
     </div>
     {% endif %}
-  </label>
+  </div>
 
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Save</button>
@@ -100,16 +151,43 @@
   const typeSelect = document.getElementById('activity-type-select');
   const gpxField = document.getElementById('gpx-field');
   const manualStatsField = document.getElementById('manual-stats-field');
+  const trackEditor = document.getElementById('track-editor');
   const trackTypes = new Set(['hike', 'bike', 'skitouring']);
 
   function syncTypeFields() {
     const type = typeSelect.value;
     gpxField.hidden = !trackTypes.has(type);
+    if (trackEditor) trackEditor.hidden = !trackTypes.has(type);
     manualStatsField.hidden = type !== 'swimming';
   }
 
   typeSelect.addEventListener('change', syncTypeFields);
   syncTypeFields();
+
+  document.querySelectorAll('.file-upload-input').forEach(function (input) {
+    const nameEl = document.querySelector('[data-file-name-for="' + input.id + '"]');
+    if (!nameEl) return;
+    const emptyLabel = input.multiple ? 'No files chosen' : 'No file chosen';
+    input.addEventListener('change', function () {
+      if (!input.files || input.files.length === 0) {
+        nameEl.textContent = emptyLabel;
+        return;
+      }
+      if (input.files.length === 1) {
+        nameEl.textContent = input.files[0].name;
+      } else {
+        nameEl.textContent = input.files.length + ' files selected';
+      }
+    });
+  });
 })();
 </script>
+{% endblock %}
+
+{% block scripts %}
+{% if activity and track_infos %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/elevation_chart.js"></script>
+<script src="/static/js/track_editor.js"></script>
+{% endif %}
 {% endblock %}

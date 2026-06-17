@@ -13,6 +13,25 @@
 <span class="badge badge-{{ activity_type.value }}">{{ labels.get(activity_type.value, activity_type.value) }}</span>
 {% endmacro %}
 
+{% macro round_elevation_tens(meters) %}{{ ((meters / 10)|round|int * 10)|int }}{% endmacro %}
+
+{% macro format_elevation_m(meters) %}
+{% if meters is none %}
+—
+{% else %}
+{{ round_elevation_tens(meters) }} m
+{% endif %}
+{% endmacro %}
+
+{% macro format_elevation_gain_compact(meters) %}
+{% if meters is not none %}
+{% set rounded = round_elevation_tens(meters) %}
+<span class="elevation-gain" title="{{ rounded }} m elevation gain">
+  <span class="elevation-value">{{ rounded }}</span><span class="elevation-icon" aria-hidden="true">↑</span>
+</span>
+{% endif %}
+{% endmacro %}
+
 {% macro stat_card(label, value, unit='') %}
 <div class="stat-card">
   <div class="stat-label">{{ label }}</div>

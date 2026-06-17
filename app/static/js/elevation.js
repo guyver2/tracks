@@ -3,81 +3,134 @@
   if (!mapEl) return;
 
   const elevationUrl = mapEl.dataset.elevationUrl;
-  if (!elevationUrl) return;
+  const speedUrl = mapEl.dataset.speedUrl;
+  if (!elevationUrl && !speedUrl) return;
 
-  const chartCard = document.getElementById("elevation-chart-card");
-  const canvas = document.getElementById("elevation-chart");
-  if (!chartCard || !canvas) return;
+  const chartCard = document.getElementById("profile-chart-card");
+  const elevationCanvas = document.getElementById("elevation-chart");
+  const speedCanvas = document.getElementById("speed-chart");
+  const errorEl = document.getElementById("profile-chart-error");
+  const elevationPanel = document.getElementById("profile-panel-elevation");
+  const speedPanel = document.getElementById("profile-panel-speed");
+  const tabs = chartCard ? chartCard.querySelectorAll(".profile-tab") : [];
+
+  if (!chartCard || !elevationCanvas || !speedCanvas) return;
 
   const activityType = mapEl.dataset.activityType || "hike";
-  const traceColors = {
-    hike: "#43c78a",
-    bike: "#5b8dee",
-    skitouring: "#e8a64c",
-  };
-  const fillColors = {
-    hike: "rgba(67, 199, 138, 0.2)",
-    bike: "rgba(91, 141, 238, 0.2)",
-    skitouring: "rgba(232, 166, 76, 0.2)",
-  };
-  const traceColor = traceColors[activityType] || traceColors.hike;
-  const fillColor = fillColors[activityType] || fillColors.hike;
+  let elevationChart = null;
+  let speedChart = null;
+  let elevationData = null;
+  let speedData = null;
+  let activeTab = "elevation";
 
-  async function loadElevation() {
-    try {
-      const resp = await fetch(elevationUrl);
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (!data.has_elevation) return;
-
-      chartCard.hidden = false;
-
-      new Chart(canvas, {
-        type: "line",
-        data: {
-          labels: data.distances_km,
-          datasets: [{
-            label: "Elevation (m)",
-            data: data.elevations_m,
-            borderColor: traceColor,
-            backgroundColor: fillColor,
-            fill: true,
-            tension: 0.1,
-            pointRadius: 0,
-            borderWidth: 2,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: (items) => items[0].label + " km",
-                label: (item) => item.parsed.y + " m",
-              },
-            },
-          },
-          scales: {
-            x: {
-              title: { display: true, text: "Distance (km)", color: "#7a82a8" },
-              ticks: { color: "#7a82a8", maxTicksLimit: 8 },
-              grid: { color: "#2e3350" },
-            },
-            y: {
-              title: { display: true, text: "Elevation (m)", color: "#7a82a8" },
-              ticks: { color: "#7a82a8" },
-              grid: { color: "#2e3350" },
-            },
-          },
-        },
-      });
-    } catch {
-      /* no chart */
+  function showError(message) {
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.hidden = false;
     }
   }
 
-  loadElevation();
+  function setActiveTab(tabName) {
+    activeTab = tabName;
+    tabs.forEach(function (tab) {
+      const isActive = tab.dataset.tab === tabName;
+      tab.classList.toggle("active", isActive);
+      tab.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    if (elevationPanel) elevationPanel.hidden = tabName !== "elevation";
+    if (speedPanel) speedPanel.hidden = tabName !== "speed";
+    if (window.tracksMapHover) window.tracksMapHover.clear();
+  }
+
+  function renderCharts() {
+    if (elevationData && elevationData.has_elevation) {
+      if (elevationCanvas.dataset.hoverBound) delete elevationCanvas.dataset.hoverBound;
+      window.TracksElevationChart.destroy(elevationChart, elevationCanvas);
+      elevationChart = window.TracksElevationChart.render(elevationCanvas, elevationData, {
+        activityType: activityType,
+        mapHover: activeTab === "elevation" ? window.tracksMapHover : null,
+      });
+    }
+    if (speedData && speedData.has_speed) {
+      if (speedCanvas.dataset.hoverBound) delete speedCanvas.dataset.hoverBound;
+      window.TracksSpeedChart.destroy(speedChart, speedCanvas);
+      speedChart = window.TracksSpeedChart.render(speedCanvas, speedData, {
+        activityType: activityType,
+        mapHover: activeTab === "speed" ? window.tracksMapHover : null,
+      });
+    }
+  }
+
+  function refreshProfileVisibility() {
+    const hasElevation = elevationData && elevationData.has_elevation;
+    const hasSpeed = speedData && speedData.has_speed;
+    if (!hasElevation && !hasSpeed) {
+      chartCard.hidden = true;
+      return;
+    }
+
+    chartCard.hidden = false;
+    tabs.forEach(function (tab) {
+      if (tab.dataset.tab === "speed") {
+        tab.hidden = !hasSpeed;
+      }
+      if (tab.dataset.tab === "elevation") {
+        tab.hidden = !hasElevation;
+      }
+    });
+
+    if (hasElevation) {
+      activeTab = "elevation";
+    } else if (hasSpeed) {
+      activeTab = "speed";
+    }
+    setActiveTab(activeTab);
+
+    requestAnimationFrame(function () {
+      try {
+        renderCharts();
+      } catch (err) {
+        showError("Could not render profile chart.");
+        console.error(err);
+      }
+    });
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      const tabName = tab.dataset.tab;
+      if (!tabName || tabName === activeTab) return;
+      if (tabName === "speed" && (!speedData || !speedData.has_speed)) return;
+      if (tabName === "elevation" && (!elevationData || !elevationData.has_elevation)) return;
+      setActiveTab(tabName);
+      if (window.tracksMapHover) window.tracksMapHover.clear();
+      renderCharts();
+    });
+  });
+
+  async function loadProfiles() {
+    try {
+      const requests = [];
+      if (elevationUrl) {
+        requests.push(fetch(elevationUrl).then(function (r) { return r.ok ? r.json() : null; }));
+      } else {
+        requests.push(Promise.resolve(null));
+      }
+      if (speedUrl) {
+        requests.push(fetch(speedUrl).then(function (r) { return r.ok ? r.json() : null; }));
+      } else {
+        requests.push(Promise.resolve(null));
+      }
+
+      const results = await Promise.all(requests);
+      elevationData = results[0];
+      speedData = results[1];
+      refreshProfileVisibility();
+    } catch (err) {
+      showError("Could not load profile data.");
+      console.error(err);
+    }
+  }
+
+  loadProfiles();
 })();

@@ -11,6 +11,11 @@
 <h1 class="page-title">Statistics</h1>
 <p class="text-dim page-subtitle">{{ period_label }}</p>
 
+<div class="filter-bar-wrap">
+<input type="checkbox" id="stats-filter-toggle" class="filter-toggle-input"{% if filters.activity_type or filters.preset != 'all' %} checked{% endif %} hidden>
+<label class="filter-toggle" for="stats-filter-toggle">
+  Filters{% if filters.activity_type or filters.preset != 'all' %} <span class="text-dim">(active)</span>{% endif %}
+</label>
 <form class="filter-bar" method="get" action="/stats">
   <div class="filter-row">
     <label>
@@ -46,6 +51,7 @@
     </label>
   </div>
 </form>
+</div>
 
 <div class="stat-grid stat-grid-3 dashboard-stats">
   {{ stat_card('Total distance', totals.all.distance_km, 'km') }}
@@ -61,25 +67,41 @@
 
 {% include "partials/activity_calendar.html" %}
 
+<div class="chart-section">
+  <div class="chart-section-controls">
+    <label class="chart-group-field">
+      <span class="field-label">Group by</span>
+      <select id="chart-group-by">
+        <option value="year">Year</option>
+        <option value="month" selected>Month</option>
+        <option value="week">Week</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="chart-grid chart-grid-series">
+    <div class="chart-card">
+      <h2 class="section-title" id="chart-distance-title">Distance per month (km)</h2>
+      <div class="chart-container">
+        <canvas id="chart-distance"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2 class="section-title" id="chart-count-title">Activities per month</h2>
+      <div class="chart-container">
+        <canvas id="chart-count"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2 class="section-title" id="chart-elevation-title">Elevation per month (m)</h2>
+      <div class="chart-container">
+        <canvas id="chart-elevation"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="chart-grid">
-  <div class="chart-card">
-    <h2 class="section-title">Distance per month (km)</h2>
-    <div class="chart-container">
-      <canvas id="chart-distance"></canvas>
-    </div>
-  </div>
-  <div class="chart-card">
-    <h2 class="section-title">Activities per month</h2>
-    <div class="chart-container">
-      <canvas id="chart-count"></canvas>
-    </div>
-  </div>
-  <div class="chart-card">
-    <h2 class="section-title">Elevation per month (m)</h2>
-    <div class="chart-container">
-      <canvas id="chart-elevation"></canvas>
-    </div>
-  </div>
   <div class="chart-card">
     <h2 class="section-title">Breakdown by type</h2>
     <div class="chart-container">
@@ -99,40 +121,72 @@ document.getElementById('preset-select').addEventListener('change', function () 
 const chartDefaults = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { labels: { color: '#f0f4ff' } } },
+  plugins: { legend: { display: false } },
   scales: {
     x: { ticks: { color: '#7a82a8' }, grid: { color: '#2e3350' } },
     y: { ticks: { color: '#7a82a8' }, grid: { color: '#2e3350' } },
   },
 };
 
-const labels = {{ monthly_labels | safe }};
+const chartSeries = {{ chart_series | safe }};
+const groupLabels = { year: 'year', month: 'month', week: 'week' };
 
-new Chart(document.getElementById('chart-distance'), {
-  type: 'bar',
-  data: {
-    labels,
-    datasets: [{ label: 'km', data: {{ monthly_distances | safe }}, backgroundColor: '#5b8dee' }],
-  },
-  options: chartDefaults,
-});
+function updateChartGroup(groupBy) {
+  const data = chartSeries[groupBy];
+  const period = groupLabels[groupBy];
 
-new Chart(document.getElementById('chart-count'), {
+  document.getElementById('chart-distance-title').textContent =
+    'Distance per ' + period + ' (km)';
+  document.getElementById('chart-count-title').textContent =
+    'Activities per ' + period;
+  document.getElementById('chart-elevation-title').textContent =
+    'Elevation per ' + period + ' (m)';
+
+  distanceChart.data.labels = data.labels;
+  distanceChart.data.datasets[0].data = data.distances;
+  distanceChart.update();
+
+  countChart.data.labels = data.labels;
+  countChart.data.datasets[0].data = data.counts;
+  countChart.update();
+
+  elevationChart.data.labels = data.labels;
+  elevationChart.data.datasets[0].data = data.elevations;
+  elevationChart.update();
+}
+
+const initialGroup = 'month';
+const initialData = chartSeries[initialGroup];
+
+const distanceChart = new Chart(document.getElementById('chart-distance'), {
   type: 'line',
   data: {
-    labels,
-    datasets: [{ label: 'Count', data: {{ monthly_counts | safe }}, borderColor: '#43c78a', tension: 0.2 }],
+    labels: initialData.labels,
+    datasets: [{ label: 'km', data: initialData.distances, borderColor: '#5b8dee', tension: 0.2 }],
   },
   options: chartDefaults,
 });
 
-new Chart(document.getElementById('chart-elevation'), {
-  type: 'bar',
+const countChart = new Chart(document.getElementById('chart-count'), {
+  type: 'line',
   data: {
-    labels,
-    datasets: [{ label: 'm', data: {{ monthly_elevations | safe }}, backgroundColor: '#7c5ce0' }],
+    labels: initialData.labels,
+    datasets: [{ label: 'Count', data: initialData.counts, borderColor: '#43c78a', tension: 0.2 }],
   },
   options: chartDefaults,
+});
+
+const elevationChart = new Chart(document.getElementById('chart-elevation'), {
+  type: 'line',
+  data: {
+    labels: initialData.labels,
+    datasets: [{ label: 'm', data: initialData.elevations, borderColor: '#7c5ce0', tension: 0.2 }],
+  },
+  options: chartDefaults,
+});
+
+document.getElementById('chart-group-by').addEventListener('change', function () {
+  updateChartGroup(this.value);
 });
 
 new Chart(document.getElementById('chart-type'), {

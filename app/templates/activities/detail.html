@@ -21,14 +21,23 @@
     </div>
   </div>
   <div class="header-actions">
-    <a href="/activities/{{ activity.id }}/edit" class="btn btn-secondary">Edit</a>
-    <form method="post" action="/activities/{{ activity.id }}/duplicate" class="inline-form">
-      <button type="submit" class="btn btn-secondary">Duplicate</button>
-    </form>
-    <form method="post" action="/activities/{{ activity.id }}/delete" class="inline-form"
-          onsubmit="return confirm('Delete this activity?')">
-      <button type="submit" class="btn btn-danger">Delete</button>
-    </form>
+    <details class="options-menu" id="activity-options">
+      <summary class="options-menu-toggle btn btn-secondary" aria-label="Options">
+        <span class="options-menu-icon" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </summary>
+      <div class="options-menu-panel" role="menu">
+        <a href="/activities/{{ activity.id }}/edit" class="options-menu-item" role="menuitem">Edit</a>
+        <form method="post" action="/activities/{{ activity.id }}/duplicate" class="options-menu-form">
+          <button type="submit" class="options-menu-item" role="menuitem">Duplicate</button>
+        </form>
+        <form method="post" action="/activities/{{ activity.id }}/delete" class="options-menu-form"
+              onsubmit="return confirm('Delete this activity?')">
+          <button type="submit" class="options-menu-item options-menu-item-danger" role="menuitem">Delete</button>
+        </form>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -38,26 +47,42 @@
     <div id="map" class="map-container"
          data-geojson-url="{% if has_gpx %}/activities/{{ activity.id }}/gpx.geojson{% endif %}"
          data-elevation-url="{% if has_gpx %}/activities/{{ activity.id }}/elevation.json{% endif %}"
+         data-speed-url="{% if has_gpx %}/activities/{{ activity.id }}/speed.json{% endif %}"
          data-activity-type="{{ activity.activity_type.value }}"
          data-place="{{ activity.place or '' }}"></div>
-    <div id="elevation-chart-card" class="elevation-chart-card" hidden>
-      <h2 class="section-title">Elevation profile</h2>
-      <div class="elevation-chart-container">
-        <canvas id="elevation-chart"></canvas>
+    <div id="profile-chart-card" class="elevation-chart-card" hidden>
+      <div class="profile-tabs" role="tablist" aria-label="Track profiles">
+        <button type="button" class="profile-tab active" data-tab="elevation" role="tab"
+                aria-selected="true" aria-controls="profile-panel-elevation">Elevation</button>
+        <button type="button" class="profile-tab" data-tab="speed" role="tab"
+                aria-selected="false" aria-controls="profile-panel-speed">Speed</button>
       </div>
+      <div id="profile-panel-elevation" class="profile-panel" role="tabpanel">
+        <div class="elevation-chart-container">
+          <canvas id="elevation-chart"></canvas>
+        </div>
+      </div>
+      <div id="profile-panel-speed" class="profile-panel" role="tabpanel" hidden>
+        <div class="elevation-chart-container">
+          <canvas id="speed-chart"></canvas>
+        </div>
+      </div>
+      <p id="profile-chart-error" class="chart-error" hidden></p>
     </div>
     {% if not has_gpx and not activity.place %}
     <p class="text-dim map-fallback">No map data — add a GPX trace or place name.</p>
     {% endif %}
   </div>
 
-  <div class="detail-side">
-    <div class="stat-grid stat-grid-2">
+  <section class="card detail-stats-card">
+    <div class="stat-grid stat-grid-2 detail-stats-grid">
       {{ stat_card('Distance', activity.distance_km or '—', 'km' if activity.distance_km else '') }}
       {{ stat_card('Duration', format_duration(activity.duration_sec)) }}
       {{ stat_card('Elevation', activity.elevation_gain_m or '—', 'm' if activity.elevation_gain_m else '') }}
     </div>
+  </section>
 
+  <div class="detail-extra">
     {% if activity.comment %}
     <section class="card">
       <h2 class="section-title">Comment</h2>
@@ -103,8 +128,23 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function () {
+  const menu = document.getElementById('activity-options');
+  if (!menu) return;
+  document.addEventListener('click', function (event) {
+    if (!menu.open || menu.contains(event.target)) return;
+    menu.open = false;
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && menu.open) menu.open = false;
+  });
+})();
+</script>
 {% if activity.activity_type.supports_track %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/elevation_chart.js"></script>
+<script src="/static/js/speed_chart.js"></script>
 <script src="/static/js/map.js"></script>
 <script src="/static/js/elevation.js"></script>
 {% endif %}

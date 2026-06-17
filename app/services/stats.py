@@ -1,7 +1,8 @@
 from calendar import monthrange
+from collections import defaultdict
 from datetime import date, timedelta
 
-from sqlalchemy import extract, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models import Activity, ActivityType
@@ -95,37 +96,54 @@ def get_period_totals(db: Session, start: date, end: date) -> dict:
     return result
 
 
-def get_monthly_series(
+def _week_start(value: date) -> date:
+    return value - timedelta(days=value.weekday())
+
+
+def _bucket_key(value: date, group_by: str) -> str:
+    if group_by == "year":
+        return str(value.year)
+    if group_by == "month":
+        return f"{value.year}-{value.month:02d}"
+    if group_by == "week":
+        return _week_start(value).isoformat()
+    raise ValueError(f"Unsupported group_by: {group_by}")
+
+
+def get_time_series(
     db: Session,
     *,
+    group_by: str = "month",
     activity_type: ActivityType | None = None,
     start: date | None = None,
     end: date | None = None,
 ) -> dict:
     query = _apply_activity_filters(
         db.query(
-            extract("year", Activity.date).label("year"),
-            extract("month", Activity.date).label("month"),
-            func.count(Activity.id),
-            func.coalesce(func.sum(Activity.distance_km), 0),
-            func.coalesce(func.sum(Activity.elevation_gain_m), 0),
+            Activity.date,
+            Activity.distance_km,
+            Activity.elevation_gain_m,
         ),
         activity_type=activity_type,
         start=start,
         end=end,
     )
-    rows = query.group_by("year", "month").order_by("year", "month").all()
+    rows = query.all()
 
-    labels = []
-    counts = []
-    distances = []
-    elevations = []
+    buckets: dict[str, dict[str, float | int]] = defaultdict(
+        lambda: {"count": 0, "distance": 0.0, "elevation": 0.0}
+    )
+    for activity_date, distance, elevation in rows:
+        key = _bucket_key(activity_date, group_by)
+        bucket = buckets[key]
+        bucket["count"] += 1
+        bucket["distance"] += float(distance or 0)
+        bucket["elevation"] += float(elevation or 0)
 
-    for year, month, count, distance, elevation in rows:
-        labels.append(f"{int(year)}-{int(month):02d}")
-        counts.append(int(count))
-        distances.append(round(float(distance), 1))
-        elevations.append(round(float(elevation), 0))
+    labels = sorted(buckets.keys())
+    counts = [int(buckets[label]["count"]) for label in labels]
+    distances = [round(float(buckets[label]["distance"]), 1) for label in labels]
+    elevations = [round(float(buckets[label]["elevation"]), 0) for label in labels]
 
     return {
         "labels": labels,
@@ -133,6 +151,22 @@ def get_monthly_series(
         "distances": distances,
         "elevations": elevations,
     }
+
+
+def get_monthly_series(
+    db: Session,
+    *,
+    activity_type: ActivityType | None = None,
+    start: date | None = None,
+    end: date | None = None,
+) -> dict:
+    return get_time_series(
+        db,
+        group_by="month",
+        activity_type=activity_type,
+        start=start,
+        end=end,
+    )
 
 
 def get_type_breakdown(

@@ -14,20 +14,16 @@
   <div class="objective-card card">
     <div class="objective-header">
       <strong>{{ item.progress.label }}</strong>
-      <span class="objective-values">{{ item.progress.current }} / {{ item.progress.target }}</span>
+      <div class="objective-header-end">
+        <span class="objective-values">{{ item.progress.current }} / {{ item.progress.target }}</span>
+        <a href="/objectives/{{ item.objective.id }}/edit" class="btn btn-icon btn-secondary" aria-label="Edit objective">✎</a>
+      </div>
     </div>
     <div class="progress-bar">
       <div class="progress-fill" style="width: {{ item.progress.pct }}%"></div>
     </div>
     <div class="objective-meta text-dim">
       {{ item.objective.start_date.isoformat() }} — {{ item.objective.end_date.isoformat() }}
-    </div>
-    <div class="objective-actions">
-      <a href="/objectives/{{ item.objective.id }}/edit" class="btn btn-secondary btn-sm">Edit</a>
-      <form method="post" action="/objectives/{{ item.objective.id }}/delete" class="inline-form"
-            onsubmit="return confirm('Delete this objective?')">
-        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-      </form>
     </div>
   </div>
   {% endfor %}

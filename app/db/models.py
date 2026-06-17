@@ -1,8 +1,8 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, Float, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -58,7 +58,6 @@ class Activity(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     place: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-    gpx_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
     photo_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
     distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
     duration_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -68,6 +67,29 @@ class Activity(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+    tracks: Mapped[list["ActivityTrack"]] = relationship(
+        back_populates="activity",
+        cascade="all, delete-orphan",
+        order_by="ActivityTrack.sort_order",
+    )
+
+
+class ActivityTrack(Base):
+    __tablename__ = "activity_tracks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    activity_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("activities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    gpx_filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    original_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    trim_start: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    trim_end: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    track_start_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    activity: Mapped["Activity"] = relationship(back_populates="tracks")
 
 
 class Objective(Base):

@@ -8,9 +8,17 @@ DATABASE_URL = os.environ.get(
 
 GPX_UPLOAD_DIR = DATA_DIR / "uploads" / "gpx"
 PHOTO_UPLOAD_DIR = DATA_DIR / "uploads" / "photos"
+ELEVATION_CACHE_DIR = DATA_DIR / "elevation_cache"
+
+ELEVATION_SOURCE = os.environ.get("ELEVATION_SOURCE", "dem").lower()
+OPENTOPODATA_BASE_URL = os.environ.get(
+    "OPENTOPODATA_BASE_URL", "https://api.opentopodata.org"
+).rstrip("/")
+OPENTOPODATA_DATASET = os.environ.get("OPENTOPODATA_DATASET", "eudem25m,srtm30m")
 
 MAX_GPX_BYTES = 10 * 1024 * 1024
 MAX_PHOTO_BYTES = 5 * 1024 * 1024
+MAX_TRACKS_PER_ACTIVITY = 10
 
 ALLOWED_PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -19,3 +27,8 @@ def ensure_data_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GPX_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     PHOTO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    ELEVATION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def elevation_enabled() -> bool:
+    return ELEVATION_SOURCE == "dem"

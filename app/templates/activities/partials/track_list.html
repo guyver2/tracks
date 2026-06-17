@@ -1,0 +1,37 @@
+{% if track_infos %}
+<div class="track-list">
+  <div class="track-list-title">Tracks</div>
+  {% for info in track_infos %}
+  <div class="track-item"
+       data-track-id="{{ info.track.id }}"
+       data-max-trim="{{ info.max_trim }}"
+       data-raw-points="{{ info.raw_point_count }}">
+    <div class="track-item-header">
+      <span class="track-item-label">
+        <span class="track-color-swatch" style="background: {{ info.color }}"></span>
+        {{ info.label }}
+      </span>
+      <span class="track-item-points" data-point-count>{{ info.point_count }} points{% if info.point_count != info.raw_point_count %} (of {{ info.raw_point_count }}){% endif %}</span>
+    </div>
+    <div class="clip-slider">
+      <div class="clip-track">
+        <div class="clip-active"></div>
+        <button type="button" class="clip-handle-knob clip-handle-start"
+                aria-label="Trim start for {{ info.label }}"></button>
+        <button type="button" class="clip-handle-knob clip-handle-end"
+                aria-label="Trim end for {{ info.label }}"></button>
+      </div>
+      <div class="clip-labels">
+        <span>Start cut</span>
+        <span>End cut</span>
+      </div>
+    </div>
+    <input type="hidden" name="track_{{ info.track.id }}_trim_start" value="{{ info.track.trim_start }}" class="trim-start-input">
+    <input type="hidden" name="track_{{ info.track.id }}_trim_end" value="{{ info.track.trim_end }}" class="trim-end-input">
+    <label class="checkbox-label track-remove">
+      <input type="checkbox" name="remove_track_{{ info.track.id }}" value="1" class="track-remove-input"> Remove track
+    </label>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

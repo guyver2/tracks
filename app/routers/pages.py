@@ -13,7 +13,7 @@ from app.db.session import get_db
 from app.services.objectives import all_objectives_with_progress
 from app.services.stats import (
     get_activity_calendar,
-    get_monthly_series,
+    get_time_series,
     get_period_totals,
     get_totals,
     get_type_breakdown,
@@ -66,7 +66,12 @@ def stats_page(
         else None
     )
 
-    monthly = get_monthly_series(db, activity_type=parsed_type, start=start, end=end)
+    chart_series = {
+        group: get_time_series(
+            db, group_by=group, activity_type=parsed_type, start=start, end=end
+        )
+        for group in ("year", "month", "week")
+    }
     breakdown = get_type_breakdown(db, start=start, end=end)
     totals = get_totals(db, activity_type=parsed_type, start=start, end=end)
 
@@ -85,10 +90,7 @@ def stats_page(
                 "date_from": date_from or "",
                 "date_to": date_to or "",
             },
-            "monthly_labels": json.dumps(monthly["labels"]),
-            "monthly_counts": json.dumps(monthly["counts"]),
-            "monthly_distances": json.dumps(monthly["distances"]),
-            "monthly_elevations": json.dumps(monthly["elevations"]),
+            "chart_series": json.dumps(chart_series),
             "type_labels": json.dumps(breakdown["labels"]),
             "type_counts": json.dumps(breakdown["counts"]),
             "type_distances": json.dumps(breakdown["distances"]),
