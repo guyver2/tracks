@@ -29,7 +29,7 @@ class RecordingController extends ChangeNotifier {
   final TrackDatabase _db;
 
   static const double _maxAcceptableAccuracy = 30; // meters
-  static const double _minElevationDelta = 1.5; // meters, noise filter
+  static const double _minElevationDelta = 5.0; // meters, noise filter
   static const Duration _flushInterval = Duration(seconds: 10);
 
   RecordingState _state = RecordingState.idle;
@@ -52,6 +52,8 @@ class RecordingController extends ChangeNotifier {
 
   double _elevationGain = 0;
   double get elevationGain => _elevationGain;
+
+  double? _elevationReference;
 
   Duration _elapsed = Duration.zero;
   Duration get elapsed => _elapsed;
@@ -96,6 +98,7 @@ class RecordingController extends ChangeNotifier {
     _pendingFlush.clear();
     _distanceMeters = 0;
     _elevationGain = 0;
+    _elevationReference = null;
     _elapsed = Duration.zero;
     _pausedAccum = Duration.zero;
     _pauseStarted = null;
@@ -212,16 +215,9 @@ class RecordingController extends ChangeNotifier {
         point.longitude,
       );
       _distanceMeters += segment;
-
-      final prevEle = previous.elevation;
-      final newEle = point.elevation;
-      if (prevEle != null && newEle != null) {
-        final delta = newEle - prevEle;
-        if (delta > _minElevationDelta) {
-          _elevationGain += delta;
-        }
-      }
     }
+
+    _updateElevationGain(point.elevation);
 
     _currentSpeed = point.speed;
     _points.add(point);
@@ -261,6 +257,23 @@ class RecordingController extends ChangeNotifier {
     return '$km km';
   }
 
+  void _updateElevationGain(double? elev) {
+    if (elev == null) return;
+    final reference = _elevationReference;
+    if (reference == null) {
+      _elevationReference = elev;
+      return;
+    }
+
+    final delta = elev - reference;
+    if (delta > _minElevationDelta) {
+      _elevationGain += delta;
+      _elevationReference = elev;
+    } else if (elev < reference) {
+      _elevationReference = elev;
+    }
+  }
+
   void _reset() {
     _state = RecordingState.idle;
     _activity = null;
@@ -270,6 +283,7 @@ class RecordingController extends ChangeNotifier {
     _pendingFlush.clear();
     _distanceMeters = 0;
     _elevationGain = 0;
+    _elevationReference = null;
     _elapsed = Duration.zero;
     _pausedAccum = Duration.zero;
     _pauseStarted = null;

@@ -28,6 +28,7 @@ TRACK_COLORS = [
 
 ELEVATION_GAP_KM = 0.1
 _MIN_POINTS_AFTER_TRIM = 2
+_MIN_ELEVATION_DELTA_M = 5.0
 _MAX_PROFILE_POINTS = 300
 _MIN_SPEED_DT_SEC = 1
 _SPEED_WINDOW_M = 100
@@ -147,19 +148,61 @@ def apply_trim(
     return trimmed
 
 
+def _dedupe_consecutive_points(points: list[GpxPoint]) -> list[GpxPoint]:
+    if not points:
+        return points
+
+    deduped = [points[0]]
+    for lat, lon, elev, ts in points[1:]:
+        prev_lat, prev_lon, _, _ = deduped[-1]
+        if lat == prev_lat and lon == prev_lon:
+            continue
+        deduped.append((lat, lon, elev, ts))
+    return deduped
+
+
+def _prepare_trimmed_points(points: list[GpxPoint]) -> list[GpxPoint]:
+    prepared = _dedupe_consecutive_points(points)
+    if len(prepared) < _MIN_POINTS_AFTER_TRIM:
+        raise ValueError(
+            f"At least {_MIN_POINTS_AFTER_TRIM} points must remain after trimming"
+        )
+    return prepared
+
+
+def _elevation_gain_from_points(points: list[GpxPoint]) -> float:
+    reference_elev: float | None = None
+    gain = 0.0
+
+    for _, _, elev, _ in points:
+        if elev is None:
+            continue
+        if reference_elev is None:
+            reference_elev = elev
+            continue
+
+        delta = elev - reference_elev
+        if delta > _MIN_ELEVATION_DELTA_M:
+            gain += delta
+            reference_elev = elev
+        elif elev < reference_elev:
+            reference_elev = elev
+
+    return gain
+
+
 def _stats_from_points(points: list[GpxPoint]) -> TrackStats:
     distance_m = 0.0
-    elevation_gain = 0.0
     timestamps: list[datetime] = []
 
-    for i, (lat, lon, elev, ts) in enumerate(points):
+    for i, (lat, lon, _, ts) in enumerate(points):
         if i > 0:
-            prev_lat, prev_lon, prev_elev, _ = points[i - 1]
+            prev_lat, prev_lon, _, _ = points[i - 1]
             distance_m += _haversine_km(prev_lat, prev_lon, lat, lon) * 1000
-            if elev is not None and prev_elev is not None and elev > prev_elev:
-                elevation_gain += elev - prev_elev
         if ts is not None:
             timestamps.append(ts)
+
+    elevation_gain = _elevation_gain_from_points(points)
 
     duration_sec = None
     if len(timestamps) >= 2:
@@ -200,7 +243,8 @@ def parse_track(
 ) -> TrackStats:
     points = _load_track_points(path, gpx_filename)
     trimmed = apply_trim(points, trim_start, trim_end)
-    return _stats_from_points(trimmed)
+    prepared = _prepare_trimmed_points(trimmed)
+    return _stats_from_points(prepared)
 
 
 def parse_gpx_file(path: Path, trim_start: int = 0, trim_end: int = 0) -> GpxStats:
@@ -836,7 +880,8 @@ def recompute_track_start_time(track: "ActivityTrack", upload_dir: Path) -> None
     try:
         points = _load_gpx_points(path)
         trimmed = apply_trim(points, track.trim_start, track.trim_end)
-        stats = _stats_from_points(trimmed)
+        prepared = _prepare_trimmed_points(trimmed)
+        stats = _stats_from_points(prepared)
         track.track_start_time = stats.track_start_time
     except ValueError:
         track.track_start_time = None
