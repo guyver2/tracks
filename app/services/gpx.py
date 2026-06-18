@@ -15,8 +15,10 @@ if TYPE_CHECKING:
 
 GpxPoint = tuple[float, float, float | None, datetime | None]
 
+TRACE_COLOR = "#FC4C02"
+
 TRACK_COLORS = [
-    "#43c78a",
+    TRACE_COLOR,
     "#5b8dee",
     "#e8a64c",
     "#e85b8d",
@@ -55,7 +57,7 @@ class TrackStats:
 
 
 def track_color(index: int) -> str:
-    return TRACK_COLORS[index % len(TRACK_COLORS)]
+    return TRACE_COLOR
 
 
 def track_fill_color(hex_color: str) -> str:
@@ -362,7 +364,7 @@ def gpx_to_geojson(path: Path) -> dict:
         "properties": {
             "distance_km": stats.distance_km,
             "bounds": stats.bounds,
-            "color": TRACK_COLORS[0],
+            "color": TRACE_COLOR,
         },
     }
 
@@ -429,7 +431,7 @@ def build_elevation_profile(
     distances_km, elevations_m, coordinates = _downsample_profile(
         distances_km, elevations_m, coordinates
     )
-    color = TRACK_COLORS[0]
+    color = TRACE_COLOR
     chart_max_km = distances_km[-1] if distances_km else round(total_km, 3)
     return {
         "has_elevation": True,
@@ -680,6 +682,7 @@ def build_stacked_elevation_profile(
             {
                 "label": _track_label(track, index),
                 "color": color,
+                "track_id": track.id,
                 "distances_km": distances_km,
                 "elevations_m": elevations_m,
                 "coordinates": coordinates,
@@ -850,6 +853,7 @@ def build_stacked_speed_profile(
             {
                 "label": _track_label(track, index),
                 "color": color,
+                "track_id": track.id,
                 "distances_km": distances_km,
                 "speeds_kmh": speeds_kmh,
                 "coordinates": coordinates,

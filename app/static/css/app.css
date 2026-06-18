@@ -1028,6 +1028,17 @@ input[type="file"].file-upload-input {
   background: var(--surface2);
 }
 
+.map-container .leaflet-tile-pane,
+.track-editor-map .leaflet-tile-pane {
+  filter: saturate(0.5) brightness(0.75);
+  opacity: 0.9;
+}
+
+.map-container .leaflet-control-attribution,
+.track-editor-map .leaflet-control-attribution {
+  background: rgba(20, 22, 35, 0.85);
+}
+
 .map-legend {
   padding: 0.5rem 0.65rem;
   background: rgba(20, 22, 35, 0.92);

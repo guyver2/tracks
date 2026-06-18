@@ -1,14 +1,5 @@
 (function () {
-  const defaultTraceColors = {
-    hike: "#43c78a",
-    bike: "#5b8dee",
-    skitouring: "#e8a64c",
-  };
-  const defaultFillColors = {
-    hike: "rgba(67, 199, 138, 0.2)",
-    bike: "rgba(91, 141, 238, 0.2)",
-    skitouring: "rgba(232, 166, 76, 0.2)",
-  };
+  const TRACE_COLOR = "#FC4C02";
 
   function hexToFill(hexColor) {
     const hex = hexColor.replace("#", "");
@@ -37,13 +28,11 @@
     return maxX;
   }
 
-  function buildDatasets(payload, activityType) {
-    const defaultColor = defaultTraceColors[activityType] || defaultTraceColors.hike;
-    const defaultFill = defaultFillColors[activityType] || defaultFillColors.hike;
+  function buildDatasets(payload) {
     const segments = payload.segments || [];
 
     return segments.map(function (segment, index) {
-      const color = segment.color || defaultColor;
+      const color = TRACE_COLOR;
       const label = segment.label || "Track " + (index + 1);
       const distances = segment.distances_km || [];
       const elevations = segment.elevations_m || [];
@@ -62,9 +51,10 @@
 
       return {
         label: label,
+        trackId: segment.track_id != null ? segment.track_id : index,
         data: data,
         borderColor: color,
-        backgroundColor: segment.color ? hexToFill(color) : defaultFill,
+        backgroundColor: hexToFill(color),
         fill: true,
         tension: 0.1,
         pointRadius: 0,
@@ -74,10 +64,11 @@
     });
   }
 
-  function bindMapHover(canvas, chart, mapHover) {
+  function bindMapHover(canvas, chart, mapHover, trackIds) {
     if (!mapHover) return;
 
     canvas._tracksChart = chart;
+    canvas._tracksDatasetIds = trackIds || [];
 
     function updateHover(event) {
       const activeChart = canvas._tracksChart;
@@ -93,9 +84,11 @@
         return;
       }
       const element = elements[0];
-      const point = activeChart.data.datasets[element.datasetIndex].data[element.index];
+      const dataset = activeChart.data.datasets[element.datasetIndex];
+      const point = dataset.data[element.index];
+      const trackId = canvas._tracksDatasetIds[element.datasetIndex];
       if (point && point.coord && point.coord.length >= 2) {
-        mapHover.show(point.coord[1], point.coord[0]);
+        mapHover.show(point.coord[1], point.coord[0], trackId);
       } else {
         mapHover.clear();
       }
@@ -115,8 +108,10 @@
 
   function render(canvas, payload, options) {
     options = options || {};
-    const activityType = options.activityType || "hike";
-    const datasets = buildDatasets(payload, activityType);
+    const datasets = buildDatasets(payload);
+    const trackIds = datasets.map(function (ds) {
+      return ds.trackId;
+    });
 
     if (!datasets.length || datasets.every(function (ds) { return !ds.data.length; })) {
       return null;
@@ -134,14 +129,15 @@
         plugins: {
           legend: { display: false },
           tooltip: {
+            displayColors: false,
             callbacks: {
               title: function (items) {
                 if (!items.length || items[0].parsed.x == null) return "";
                 return formatDistanceKm(items[0].parsed.x);
               },
               label: function (item) {
-                if (item.parsed.y == null) return item.dataset.label;
-                return item.dataset.label + ": " + Math.round(item.parsed.y) + " m";
+                if (item.parsed.y == null) return "";
+                return Math.round(item.parsed.y) + " m";
               },
             },
           },
@@ -170,7 +166,7 @@
       },
     });
 
-    bindMapHover(canvas, chart, options.mapHover);
+    bindMapHover(canvas, chart, options.mapHover, trackIds);
     chart.resize();
     return chart;
   }

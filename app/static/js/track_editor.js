@@ -55,9 +55,10 @@
   };
 
   function initMap() {
-    map = L.map(mapEl, { scrollWheelZoom: false });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    map = L.map(mapEl);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
       maxZoom: 19,
     }).addTo(map);
     layerGroup = L.featureGroup().addTo(map);
@@ -89,8 +90,8 @@
       };
     }
     return {
-      color: props.color || "#43c78a",
-      weight: props.weight || 5,
+      color: props.color || "#FC4C02",
+      weight: props.weight || 3,
       opacity: opacity,
     };
   }
