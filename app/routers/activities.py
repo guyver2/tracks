@@ -1,15 +1,22 @@
 from datetime import date
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.config import GPX_UPLOAD_DIR, MAX_TRACKS_PER_ACTIVITY, PHOTO_UPLOAD_DIR, elevation_enabled
-from app.db.models import Activity, ActivityTrack, ActivityType
+from app.config import (
+    GPX_UPLOAD_DIR,
+    MAX_PHOTOS_PER_ACTIVITY,
+    MAX_TRACKS_PER_ACTIVITY,
+    PHOTO_UPLOAD_DIR,
+    elevation_enabled,
+)
+from app.db.models import Activity, ActivityPhoto, ActivityTrack, ActivityType
 from app.db.session import get_db
 from app.services.elevation import (
     delete_elevation_cache,
@@ -18,6 +25,7 @@ from app.services.elevation import (
 )
 from app.services.elevation_worker import get_worker
 from app.services.gpx import (
+    activities_tracks_to_geojson,
     aggregate_track_stats,
     bounds_to_json,
     build_stacked_elevation_profile,
@@ -107,6 +115,21 @@ def _recompute_activity_from_tracks(activity: Activity) -> None:
     activity.duration_sec = aggregated.duration_sec
     activity.elevation_gain_m = aggregated.elevation_gain_m
     activity.bounds_json = bounds_to_json(aggregated.bounds)
+
+
+def _activity_date_from_tracks(tracks: list[ActivityTrack]) -> date | None:
+    starts = [track.track_start_time for track in tracks if track.track_start_time is not None]
+    if not starts:
+        return None
+    return min(starts).date()
+
+
+def _apply_gpx_activity_date(activity: Activity, form_date: date) -> None:
+    gpx_date = _activity_date_from_tracks(activity.tracks)
+    if gpx_date is None:
+        return
+    if form_date == date.today() or gpx_date != form_date:
+        activity.date = gpx_date
 
 
 def _track_form_context(activity: Activity) -> list[dict]:
@@ -208,6 +231,55 @@ def _cleanup_added_tracks(tracks: list[ActivityTrack], activity: Activity) -> No
         delete_file(GPX_UPLOAD_DIR, track.gpx_filename)
         if track in activity.tracks:
             activity.tracks.remove(track)
+
+
+async def _add_photos(
+    activity: Activity,
+    uploads: list[UploadFile],
+    errors: list[str],
+) -> list[ActivityPhoto]:
+    valid_uploads = [upload for upload in uploads if upload.filename]
+    added_photos: list[ActivityPhoto] = []
+    if not valid_uploads:
+        return added_photos
+
+    current_count = len(activity.photos)
+    if current_count + len(valid_uploads) > MAX_PHOTOS_PER_ACTIVITY:
+        errors.append(f"Maximum {MAX_PHOTOS_PER_ACTIVITY} photos per activity")
+        return added_photos
+
+    max_sort = max((photo.sort_order for photo in activity.photos), default=-1)
+    for upload in valid_uploads:
+        saved_filename: str | None = None
+        try:
+            saved_filename = await save_photo(upload)
+            max_sort += 1
+            photo = ActivityPhoto(
+                activity=activity,
+                filename=saved_filename,
+                sort_order=max_sort,
+            )
+            added_photos.append(photo)
+            saved_filename = None
+        except ValueError as e:
+            errors.append(str(e))
+            if saved_filename:
+                delete_file(PHOTO_UPLOAD_DIR, saved_filename)
+    return added_photos
+
+
+def _cleanup_added_photos(photos: list[ActivityPhoto], activity: Activity) -> None:
+    for photo in photos:
+        delete_file(PHOTO_UPLOAD_DIR, photo.filename)
+        if photo in activity.photos:
+            activity.photos.remove(photo)
+
+
+def _apply_photo_removals(activity: Activity, form) -> None:
+    for photo in list(activity.photos):
+        if form.get(f"remove_photo_{photo.id}") == "1":
+            delete_file(PHOTO_UPLOAD_DIR, photo.filename)
+            activity.photos.remove(photo)
 
 
 def _validate_existing_tracks(
@@ -348,13 +420,12 @@ def _form_context(
     return context
 
 
-@router.get("", response_class=HTMLResponse)
-def list_activities(
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
-    activity_type: str | None = Query(None),
-    date_from: str | None = Query(None),
-    date_to: str | None = Query(None),
+def _filtered_activities_query(
+    db: Session,
+    *,
+    activity_type: str | None,
+    date_from: str | None,
+    date_to: str | None,
 ):
     query = db.query(Activity).order_by(desc(Activity.date), desc(Activity.id))
 
@@ -365,7 +436,45 @@ def list_activities(
     if date_to:
         query = query.filter(Activity.date <= _parse_date(date_to))
 
-    activities = query.all()
+    return query
+
+
+def _activity_filter_params(
+    activity_type: str | None,
+    date_from: str | None,
+    date_to: str | None,
+) -> dict[str, str]:
+    params: dict[str, str] = {}
+    if activity_type in VALID_ACTIVITY_TYPES:
+        params["activity_type"] = activity_type
+    if date_from:
+        params["date_from"] = date_from
+    if date_to:
+        params["date_to"] = date_to
+    return params
+
+
+def _map_geojson_url(filter_params: dict[str, str]) -> str:
+    if not filter_params:
+        return "/activities/map.geojson"
+    return "/activities/map.geojson?" + urlencode(filter_params)
+
+
+@router.get("", response_class=HTMLResponse)
+def list_activities(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    activity_type: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
+    filter_params = _activity_filter_params(activity_type, date_from, date_to)
+    activities = (
+        _filtered_activities_query(db, activity_type=activity_type, date_from=date_from, date_to=date_to)
+        .options(joinedload(Activity.tracks))
+        .all()
+    )
+    has_tracks = any(activity.tracks for activity in activities)
     return templates.TemplateResponse(
         request,
         "activities/list.html",
@@ -373,6 +482,8 @@ def list_activities(
             "request": request,
             "active_nav": "activities",
             "activities": activities,
+            "has_tracks": has_tracks,
+            "map_geojson_url": _map_geojson_url(filter_params),
             "filters": {
                 "activity_type": activity_type or "",
                 "date_from": date_from or "",
@@ -380,6 +491,22 @@ def list_activities(
             },
         },
     )
+
+
+@router.get("/map.geojson")
+def activities_map_geojson(
+    db: Annotated[Session, Depends(get_db)],
+    activity_type: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
+    activities = (
+        _filtered_activities_query(db, activity_type=activity_type, date_from=date_from, date_to=date_to)
+        .options(joinedload(Activity.tracks))
+        .all()
+    )
+    geojson = activities_tracks_to_geojson(activities, GPX_UPLOAD_DIR)
+    return JSONResponse(geojson)
 
 
 @router.get("/new", response_class=HTMLResponse)
@@ -430,22 +557,24 @@ async def create_activity(
     distance_km: Annotated[str, Form()] = "",
     duration_min: Annotated[str, Form()] = "",
     gpx_files: list[UploadFile] = File(default=[]),
-    photo_file: UploadFile | None = File(None),
+    photo_files: list[UploadFile] = File(default=[]),
 ):
     if activity_type not in VALID_ACTIVITY_TYPES:
         raise HTTPException(status_code=400, detail="Invalid activity type")
 
     parsed_type = ActivityType(activity_type)
+    parsed_date = _parse_date(activity_date)
     activity = Activity(
         name=name.strip(),
         activity_type=parsed_type,
-        date=_parse_date(activity_date),
+        date=parsed_date,
         place=place.strip(),
         comment=comment.strip() or None,
     )
 
     errors: list[str] = []
     added_tracks: list[ActivityTrack] = []
+    added_photos: list[ActivityPhoto] = []
 
     try:
         if parsed_type.supports_manual_stats:
@@ -457,15 +586,13 @@ async def create_activity(
         added_tracks = await _add_gpx_tracks(activity, gpx_files, errors)
         if activity.tracks and not errors:
             _recompute_activity_from_tracks(activity)
+            _apply_gpx_activity_date(activity, parsed_date)
 
-    if photo_file and photo_file.filename:
-        try:
-            activity.photo_filename = await save_photo(photo_file)
-        except ValueError as e:
-            errors.append(str(e))
+    added_photos = await _add_photos(activity, photo_files, errors)
 
     if errors:
         _cleanup_added_tracks(added_tracks, activity)
+        _cleanup_added_photos(added_photos, activity)
         return templates.TemplateResponse(
             request,
             "activities/form.html",
@@ -609,9 +736,8 @@ async def update_activity(
     comment: Annotated[str, Form()] = "",
     distance_km: Annotated[str, Form()] = "",
     duration_min: Annotated[str, Form()] = "",
-    remove_photo: Annotated[str, Form()] = "",
     gpx_files: list[UploadFile] = File(default=[]),
-    photo_file: UploadFile | None = File(None),
+    photo_files: list[UploadFile] = File(default=[]),
 ):
     activity = _get_activity_or_404(db, activity_id)
     if activity_type not in VALID_ACTIVITY_TYPES:
@@ -626,6 +752,7 @@ async def update_activity(
 
     errors: list[str] = []
     added_tracks: list[ActivityTrack] = []
+    added_photos: list[ActivityPhoto] = []
     form = await request.form()
 
     try:
@@ -646,19 +773,12 @@ async def update_activity(
             if not errors:
                 _recompute_activity_from_tracks(activity)
 
-    if remove_photo == "1":
-        delete_file(PHOTO_UPLOAD_DIR, activity.photo_filename)
-        activity.photo_filename = None
-
-    if photo_file and photo_file.filename:
-        delete_file(PHOTO_UPLOAD_DIR, activity.photo_filename)
-        try:
-            activity.photo_filename = await save_photo(photo_file)
-        except ValueError as e:
-            errors.append(str(e))
+    _apply_photo_removals(activity, form)
+    added_photos = await _add_photos(activity, photo_files, errors)
 
     if errors:
         _cleanup_added_tracks(added_tracks, activity)
+        _cleanup_added_photos(added_photos, activity)
         db.rollback()
         activity = _get_activity_or_404(db, activity_id)
         return templates.TemplateResponse(
@@ -686,7 +806,8 @@ def delete_activity(activity_id: int, db: Annotated[Session, Depends(get_db)]):
         delete_file(GPX_UPLOAD_DIR, track.gpx_filename)
         delete_elevation_cache(track.gpx_filename)
         get_worker().cancel(track.gpx_filename)
-    delete_file(PHOTO_UPLOAD_DIR, activity.photo_filename)
+    for photo in activity.photos:
+        delete_file(PHOTO_UPLOAD_DIR, photo.filename)
     db.delete(activity)
     db.commit()
     return RedirectResponse(url="/activities?flash=deleted", status_code=303)

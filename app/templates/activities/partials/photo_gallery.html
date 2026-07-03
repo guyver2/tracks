@@ -1,0 +1,13 @@
+<div class="activity-photos" data-photo-gallery>
+  {% for photo in activity.photos %}
+  <button type="button"
+          class="activity-photo-btn"
+          data-photo-src="/uploads/photos/{{ photo.filename }}"
+          aria-label="View photo {{ loop.index }} of {{ activity.photos|length }}">
+    <img src="/uploads/photos/{{ photo.filename }}"
+         alt="Activity photo {{ loop.index }}"
+         class="activity-photo-thumb"
+         loading="lazy">
+  </button>
+  {% endfor %}
+</div>

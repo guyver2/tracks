@@ -1,0 +1,15 @@
+---
+description: Never add agent attribution to git commits or PRs
+alwaysApply: true
+---
+
+# No Git Attribution
+
+Never add agent attribution to commits or pull requests.
+
+- Do not add `Co-authored-by` trailers (including `Co-authored-by: Cursor <cursoragent@cursor.com>`).
+- Do not override commit author with `--author`.
+- Do not add `Signed-off-by`, `Reviewed-by`, or other attribution trailers on the agent's behalf.
+- Commit messages must contain only the user's authorship.
+
+When amending or rewriting commits to remove injected attribution, strip all co-author trailers before pushing.

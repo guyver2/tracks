@@ -58,7 +58,6 @@ class Activity(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     place: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-    photo_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
     distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
     duration_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
     elevation_gain_m: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -73,6 +72,24 @@ class Activity(Base):
         cascade="all, delete-orphan",
         order_by="ActivityTrack.sort_order",
     )
+    photos: Mapped[list["ActivityPhoto"]] = relationship(
+        back_populates="activity",
+        cascade="all, delete-orphan",
+        order_by="ActivityPhoto.sort_order",
+    )
+
+
+class ActivityPhoto(Base):
+    __tablename__ = "activity_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    activity_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("activities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    activity: Mapped["Activity"] = relationship(back_populates="photos")
 
 
 class ActivityTrack(Base):

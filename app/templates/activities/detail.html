@@ -90,10 +90,10 @@
     </section>
     {% endif %}
 
-    {% if activity.photo_filename %}
+    {% if activity.photos %}
     <section class="card">
-      <h2 class="section-title">Photo</h2>
-      <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Activity photo" class="activity-photo">
+      <h2 class="section-title">Photos</h2>
+      {% include "activities/partials/photo_gallery.html" %}
     </section>
     {% endif %}
   </div>
@@ -107,9 +107,9 @@
   </div>
   {% endif %}
 
-  {% if activity.photo_filename %}
+  {% if activity.photos %}
   <section class="card detail-photo-card">
-    <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Activity photo" class="activity-photo">
+    {% include "activities/partials/photo_gallery.html" %}
   </section>
   {% endif %}
 
@@ -120,10 +120,29 @@
   </section>
   {% endif %}
 
-  {% if activity.activity_type.value == 'climbing' and not activity.photo_filename and not activity.comment %}
+  {% if activity.activity_type.value == 'climbing' and not activity.photos and not activity.comment %}
   <p class="text-dim">No photo or notes for this session.</p>
   {% endif %}
 </div>
+{% endif %}
+
+{% if activity.photos %}
+<dialog id="photo-lightbox" class="photo-lightbox" aria-label="Photo viewer">
+  <div class="photo-lightbox-card card">
+    <div class="photo-lightbox-header">
+      <h2 class="section-title photo-lightbox-title">Photo</h2>
+      <button type="button" class="btn btn-secondary btn-icon photo-lightbox-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="photo-lightbox-stage">
+      <button type="button" class="btn btn-secondary btn-icon photo-lightbox-nav photo-lightbox-prev" aria-label="Previous photo" hidden>&lsaquo;</button>
+      <img class="photo-lightbox-image" alt="">
+      <button type="button" class="btn btn-secondary btn-icon photo-lightbox-nav photo-lightbox-next" aria-label="Next photo" hidden>&rsaquo;</button>
+    </div>
+    <div class="photo-lightbox-footer">
+      <p class="photo-lightbox-counter badge" hidden aria-live="polite"></p>
+    </div>
+  </div>
+</dialog>
 {% endif %}
 {% endblock %}
 
@@ -141,6 +160,9 @@
   });
 })();
 </script>
+{% if activity.photos %}
+<script src="/static/js/photo_gallery.js"></script>
+{% endif %}
 {% if activity.activity_type.supports_track %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/js/elevation_chart.js"></script>

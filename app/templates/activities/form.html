@@ -31,7 +31,7 @@
       <span class="field-label">Type</span>
       <select name="activity_type" id="activity-type-select" required>
         <option value="hike"{% if activity and activity.activity_type.value == 'hike' %} selected{% endif %}>Hike</option>
-        <option value="bike"{% if activity and activity.activity_type.value == 'bike' %} selected{% endif %}>Bike</option>
+        <option value="bike"{% if (activity and activity.activity_type.value == 'bike') or not activity %} selected{% endif %}>Bike</option>
         <option value="skitouring"{% if activity and activity.activity_type.value == 'skitouring' %} selected{% endif %}>Ski touring</option>
         <option value="climbing"{% if activity and activity.activity_type.value == 'climbing' %} selected{% endif %}>Climbing</option>
         <option value="swimming"{% if activity and activity.activity_type.value == 'swimming' %} selected{% endif %}>Swimming</option>
@@ -124,18 +124,23 @@
   </div>
 
   <div class="form-field">
-    <span class="field-label">Photo</span>
+    <span class="field-label">Photos</span>
     <div class="file-upload">
-      <input type="file" id="photo-file" class="file-upload-input" name="photo_file" accept="image/jpeg,image/png,image/webp">
-      <label class="btn btn-secondary file-upload-btn" for="photo-file">Choose image</label>
-      <span class="file-upload-name" data-file-name-for="photo-file">No file chosen</span>
+      <input type="file" id="photo-files" class="file-upload-input" name="photo_files" accept="image/jpeg,image/png,image/webp" multiple>
+      <label class="btn btn-secondary file-upload-btn" for="photo-files">Choose images</label>
+      <span class="file-upload-name" data-file-name-for="photo-files">No files chosen</span>
     </div>
-    {% if activity and activity.photo_filename %}
-    <div class="current-photo">
-      <img src="/uploads/photos/{{ activity.photo_filename }}" alt="Current photo" class="thumb">
-      <label class="checkbox-label">
-        <input type="checkbox" name="remove_photo" value="1"> Remove current photo
-      </label>
+    <span class="field-hint">Select one or more images (JPG, PNG, or WebP, max 5 MB each). On edit, new images are added to existing photos.</span>
+    {% if activity and activity.photos %}
+    <div class="current-photos">
+      {% for photo in activity.photos %}
+      <div class="current-photo">
+        <img src="/uploads/photos/{{ photo.filename }}" alt="Current photo" class="thumb">
+        <label class="checkbox-label">
+          <input type="checkbox" name="remove_photo_{{ photo.id }}" value="1"> Remove
+        </label>
+      </div>
+      {% endfor %}
     </div>
     {% endif %}
   </div>

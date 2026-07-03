@@ -3,10 +3,22 @@
 
 {% block title %}Activities — Tracks{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Activities</h1>
-  <a href="/activities/new" class="btn btn-primary">New activity</a>
+  <div class="header-actions">
+    <button type="button"
+            id="activities-map-open"
+            class="btn btn-secondary"
+            {% if not has_tracks %}disabled{% endif %}>
+      Show map
+    </button>
+    <a href="/activities/new" class="btn btn-primary">New activity</a>
+  </div>
 </div>
 
 {% if request.query_params.get('flash') == 'deleted' %}
@@ -93,4 +105,24 @@
 {% else %}
 <p class="text-dim empty-state">No activities yet. <a href="/activities/new">Add your first one</a>.</p>
 {% endif %}
+
+<dialog id="activities-map-dialog" class="activities-map-dialog" aria-label="Activities track map">
+  <div class="activities-map-card card">
+    <div class="activities-map-header">
+      <h2 class="section-title activities-map-title">Track map</h2>
+      <button type="button" class="btn btn-secondary btn-icon activities-map-close" aria-label="Close">&times;</button>
+    </div>
+    <div id="activities-map"
+         class="map-container activities-map-container"
+         data-geojson-url="{{ map_geojson_url }}"></div>
+    <p id="activities-map-empty" class="activities-map-empty text-dim" hidden>
+      No GPX tracks in the current list.
+    </p>
+  </div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/activities_map.js"></script>
 {% endblock %}

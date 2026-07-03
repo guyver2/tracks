@@ -11,7 +11,7 @@ from app.config import elevation_enabled
 from app.services.elevation import aggregate_elevation_meta, load_cached_elevations
 
 if TYPE_CHECKING:
-    from app.db.models import ActivityTrack
+    from app.db.models import Activity, ActivityTrack
 
 GpxPoint = tuple[float, float, float | None, datetime | None]
 
@@ -352,6 +352,40 @@ def tracks_to_geojson(tracks: list["ActivityTrack"], upload_dir: Path) -> dict:
 
     if len(features) == 1:
         return features[0]
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+def activities_tracks_to_geojson(activities: list["Activity"], upload_dir: Path) -> dict:
+    features: list[dict] = []
+    for activity_index, activity in enumerate(activities):
+        if not activity.tracks:
+            continue
+        sorted_tracks = _sorted_tracks(activity.tracks, upload_dir)
+        for track_index, track in enumerate(sorted_tracks):
+            path = upload_dir / track.gpx_filename
+            if not path.exists():
+                continue
+            try:
+                stats = _parse_activity_track(track, path)
+            except ValueError:
+                continue
+            label = activity.name
+            if len(sorted_tracks) > 1:
+                label = f"{activity.name} — {track_label(track, track_index)}"
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "LineString", "coordinates": stats.coordinates},
+                    "properties": {
+                        "color": track_color(activity_index),
+                        "label": label,
+                        "activity_id": activity.id,
+                        "activity_name": activity.name,
+                        "track_id": track.id,
+                    },
+                }
+            )
 
     return {"type": "FeatureCollection", "features": features}
 
