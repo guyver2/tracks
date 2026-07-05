@@ -526,6 +526,39 @@ a:hover {
     flex-wrap: wrap;
     align-items: flex-end;
   }
+
+  .filter-search {
+    flex: 1 1 14rem;
+    min-width: 12rem;
+  }
+}
+
+.filter-search input[type="search"] {
+  width: 100%;
+}
+
+.list-summary {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.pagination-status {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.pagination [aria-disabled="true"] {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 /* Activity cards */

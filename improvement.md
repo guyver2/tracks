@@ -38,7 +38,7 @@ The biggest practical gap is the **disconnected phone → server pipeline**. Mos
 |----|------|------|--------|
 | sync-api | Android ↔ server GPX upload API + token auth | 1 | pending |
 | export-backup | Per-activity GPX download and bulk backup/export | 1 | pending |
-| search-pagination | Activity list search, sort, and pagination | 1 | pending |
+| search-pagination | Activity list search, sort, and pagination | 1 | done |
 | personal-records | PR detection from existing speed/distance data | 1 | pending |
 | fit-import | FIT/TCX import with HR/cadence/power extraction | 1 | pending |
 | heatmap | Aggregate activity heatmap on stats/map page | 2 | pending |
@@ -72,7 +72,9 @@ These extend the existing product without turning it into Strava.
 
 **Effort:** Low–medium · **Value:** High for self-hosting trust.
 
-### 3. Activity search, sort, and pagination
+### 3. Activity search, sort, and pagination ✓
+
+**Status:** Done — search on name/place/comment, sort by date/distance/elevation, paginated list (25 per page).
 
 **Why:** [`app/routers/activities.py`](app/routers/activities.py) lists all activities with type/date filters only. As the log grows, finding “that Chamonix ride” gets painful.
 

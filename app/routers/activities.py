@@ -6,10 +6,11 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import desc
+from sqlalchemy import desc, nulls_last, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import (
+    ACTIVITIES_PAGE_SIZE,
     GPX_UPLOAD_DIR,
     MAP_GEOJSON_CACHE_DIR,
     MAX_PHOTOS_PER_ACTIVITY,
@@ -52,6 +53,8 @@ router = APIRouter(prefix="/activities", tags=["activities"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
 VALID_ACTIVITY_TYPES = frozenset(t.value for t in ActivityType)
+VALID_SORT_FIELDS = frozenset({"date", "distance", "elevation"})
+DEFAULT_SORT = "date_desc"
 
 
 def _get_activity_or_404(db: Session, activity_id: int) -> Activity:
@@ -440,8 +443,10 @@ def _filtered_activities_query(
     activity_type: str | None,
     date_from: str | None,
     date_to: str | None,
+    q: str | None = None,
+    sort: str | None = None,
 ):
-    query = db.query(Activity).order_by(desc(Activity.date), desc(Activity.id))
+    query = db.query(Activity)
 
     if activity_type in VALID_ACTIVITY_TYPES:
         query = query.filter(Activity.activity_type == ActivityType(activity_type))
@@ -450,13 +455,60 @@ def _filtered_activities_query(
     if date_to:
         query = query.filter(Activity.date <= _parse_date(date_to))
 
-    return query
+    search = (q or "").strip()
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                Activity.name.ilike(pattern),
+                Activity.place.ilike(pattern),
+                Activity.comment.ilike(pattern),
+            )
+        )
+
+    sort_field, sort_dir = _parse_sort(sort)
+    descending = sort_dir == "desc"
+    if sort_field == "distance":
+        ordered = nulls_last(
+            Activity.distance_km.desc() if descending else Activity.distance_km.asc()
+        )
+    elif sort_field == "elevation":
+        ordered = nulls_last(
+            Activity.elevation_gain_m.desc()
+            if descending
+            else Activity.elevation_gain_m.asc()
+        )
+    else:
+        ordered = Activity.date.desc() if descending else Activity.date.asc()
+
+    if sort_field == "date":
+        tiebreaker = Activity.id.desc() if descending else Activity.id.asc()
+        return query.order_by(ordered, tiebreaker)
+
+    return query.order_by(ordered, desc(Activity.date), desc(Activity.id))
+
+
+def _parse_sort(sort: str | None) -> tuple[str, str]:
+    if not sort:
+        return "date", "desc"
+    if sort.endswith("_asc"):
+        field = sort[:-4]
+        if field in VALID_SORT_FIELDS:
+            return field, "asc"
+    if sort.endswith("_desc"):
+        field = sort[:-5]
+        if field in VALID_SORT_FIELDS:
+            return field, "desc"
+    return "date", "desc"
 
 
 def _activity_filter_params(
     activity_type: str | None,
     date_from: str | None,
     date_to: str | None,
+    q: str | None = None,
+    sort: str | None = None,
+    page: int | None = None,
 ) -> dict[str, str]:
     params: dict[str, str] = {}
     if activity_type in VALID_ACTIVITY_TYPES:
@@ -465,13 +517,54 @@ def _activity_filter_params(
         params["date_from"] = date_from
     if date_to:
         params["date_to"] = date_to
+    search = (q or "").strip()
+    if search:
+        params["q"] = search
+    if sort and sort != DEFAULT_SORT:
+        params["sort"] = sort
+    if page and page > 1:
+        params["page"] = str(page)
     return params
 
 
+def _activities_list_url(params: dict[str, str], *, page: int | None = None) -> str:
+    merged = dict(params)
+    if page is None:
+        url_params = merged
+    elif page <= 1:
+        merged.pop("page", None)
+        url_params = merged
+    else:
+        merged["page"] = str(page)
+        url_params = merged
+    if not url_params:
+        return "/activities"
+    return "/activities?" + urlencode(url_params)
+
+
+def _paginate(query, page: int) -> tuple[list[Activity], dict]:
+    total = query.count()
+    total_pages = max(1, (total + ACTIVITIES_PAGE_SIZE - 1) // ACTIVITIES_PAGE_SIZE)
+    page = min(max(1, page), total_pages)
+    offset = (page - 1) * ACTIVITIES_PAGE_SIZE
+    items = query.offset(offset).limit(ACTIVITIES_PAGE_SIZE).all()
+    start = offset + 1 if total else 0
+    end = offset + len(items)
+    return items, {
+        "page": page,
+        "total": total,
+        "total_pages": total_pages,
+        "start": start,
+        "end": end,
+        "page_size": ACTIVITIES_PAGE_SIZE,
+    }
+
+
 def _map_manifest_url(filter_params: dict[str, str]) -> str:
-    if not filter_params:
+    params = {key: value for key, value in filter_params.items() if key != "page"}
+    if not params:
         return "/activities/map/manifest.json"
-    return "/activities/map/manifest.json?" + urlencode(filter_params)
+    return "/activities/map/manifest.json?" + urlencode(params)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -481,14 +574,46 @@ def list_activities(
     activity_type: str | None = Query(None),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
+    q: str | None = Query(None),
+    sort: str | None = Query(None),
+    page: int = Query(1, ge=1),
 ):
-    filter_params = _activity_filter_params(activity_type, date_from, date_to)
-    activities = (
-        _filtered_activities_query(db, activity_type=activity_type, date_from=date_from, date_to=date_to)
-        .options(joinedload(Activity.tracks))
-        .all()
+    sort = sort or DEFAULT_SORT
+    filter_params = _activity_filter_params(
+        activity_type, date_from, date_to, q=q, sort=sort, page=page
     )
-    has_tracks = any(activity.tracks for activity in activities)
+    base_query = _filtered_activities_query(
+        db,
+        activity_type=activity_type,
+        date_from=date_from,
+        date_to=date_to,
+        q=q,
+        sort=sort,
+    )
+    activities, pagination = _paginate(
+        base_query.options(joinedload(Activity.tracks)), page
+    )
+    has_tracks = (
+        _filtered_activities_query(
+            db,
+            activity_type=activity_type,
+            date_from=date_from,
+            date_to=date_to,
+            q=q,
+            sort=sort,
+        )
+        .join(Activity.tracks)
+        .first()
+        is not None
+    )
+    any_activities = db.query(Activity).limit(1).first() is not None
+    filters_active = bool(
+        (q or "").strip()
+        or activity_type in VALID_ACTIVITY_TYPES
+        or date_from
+        or date_to
+        or sort != DEFAULT_SORT
+    )
     return templates.TemplateResponse(
         request,
         "activities/list.html",
@@ -498,10 +623,17 @@ def list_activities(
             "activities": activities,
             "has_tracks": has_tracks,
             "map_manifest_url": _map_manifest_url(filter_params),
+            "pagination": pagination,
+            "list_query_params": filter_params,
+            "activities_list_url": _activities_list_url,
+            "any_activities": any_activities,
+            "filters_active": filters_active,
             "filters": {
                 "activity_type": activity_type or "",
                 "date_from": date_from or "",
                 "date_to": date_to or "",
+                "q": (q or "").strip(),
+                "sort": sort,
             },
         },
     )
@@ -513,9 +645,18 @@ def activities_map_manifest_json(
     activity_type: str | None = Query(None),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
+    q: str | None = Query(None),
+    sort: str | None = Query(None),
 ):
     activities = (
-        _filtered_activities_query(db, activity_type=activity_type, date_from=date_from, date_to=date_to)
+        _filtered_activities_query(
+            db,
+            activity_type=activity_type,
+            date_from=date_from,
+            date_to=date_to,
+            q=q,
+            sort=sort or DEFAULT_SORT,
+        )
         .options(joinedload(Activity.tracks))
         .all()
     )

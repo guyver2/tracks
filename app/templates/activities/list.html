@@ -26,12 +26,16 @@
 {% endif %}
 
 <div class="filter-bar-wrap">
-<input type="checkbox" id="activities-filter-toggle" class="filter-toggle-input"{% if filters.activity_type or filters.date_from or filters.date_to %} checked{% endif %} hidden>
+<input type="checkbox" id="activities-filter-toggle" class="filter-toggle-input"{% if filters_active %} checked{% endif %} hidden>
 <label class="filter-toggle" for="activities-filter-toggle">
-  Filters{% if filters.activity_type or filters.date_from or filters.date_to %} <span class="text-dim">(active)</span>{% endif %}
+  Search &amp; filters{% if filters_active %} <span class="text-dim">(active)</span>{% endif %}
 </label>
 <form class="filter-bar" method="get" action="/activities">
   <div class="filter-row">
+    <label class="filter-search">
+      <span class="field-label">Search</span>
+      <input type="search" name="q" value="{{ filters.q }}" placeholder="Name, place, or notes">
+    </label>
     <label>
       <span class="field-label">Type</span>
       <select name="activity_type">
@@ -51,12 +55,27 @@
       <span class="field-label">To</span>
       <input type="date" name="date_to" value="{{ filters.date_to }}">
     </label>
-    <button type="submit" class="btn btn-secondary">Filter</button>
+    <label>
+      <span class="field-label">Sort</span>
+      <select name="sort">
+        <option value="date_desc"{% if filters.sort == 'date_desc' %} selected{% endif %}>Date (newest)</option>
+        <option value="date_asc"{% if filters.sort == 'date_asc' %} selected{% endif %}>Date (oldest)</option>
+        <option value="distance_desc"{% if filters.sort == 'distance_desc' %} selected{% endif %}>Distance (longest)</option>
+        <option value="distance_asc"{% if filters.sort == 'distance_asc' %} selected{% endif %}>Distance (shortest)</option>
+        <option value="elevation_desc"{% if filters.sort == 'elevation_desc' %} selected{% endif %}>Elevation (most)</option>
+        <option value="elevation_asc"{% if filters.sort == 'elevation_asc' %} selected{% endif %}>Elevation (least)</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-secondary">Apply</button>
   </div>
 </form>
 </div>
 
 {% if activities %}
+{% if pagination.total > 0 %}
+<p class="list-summary text-dim">Showing {{ pagination.start }}–{{ pagination.end }} of {{ pagination.total }}</p>
+{% endif %}
+
 <div class="activity-cards mobile-only">
   {% for activity in activities %}
   <a href="/activities/{{ activity.id }}" class="activity-card">
@@ -102,8 +121,29 @@
     </tbody>
   </table>
 </div>
-{% else %}
+
+{% if pagination.total_pages > 1 %}
+<nav class="pagination" aria-label="Activities pages">
+  {% if pagination.page > 1 %}
+  <a href="{{ activities_list_url(list_query_params, page=pagination.page - 1) }}" class="btn btn-secondary btn-sm">Previous</a>
+  {% else %}
+  <span class="btn btn-secondary btn-sm" aria-disabled="true">Previous</span>
+  {% endif %}
+  <span class="pagination-status">Page {{ pagination.page }} of {{ pagination.total_pages }}</span>
+  {% if pagination.page < pagination.total_pages %}
+  <a href="{{ activities_list_url(list_query_params, page=pagination.page + 1) }}" class="btn btn-secondary btn-sm">Next</a>
+  {% else %}
+  <span class="btn btn-secondary btn-sm" aria-disabled="true">Next</span>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% elif filters_active %}
+<p class="text-dim empty-state">No activities match your search or filters.</p>
+{% elif not any_activities %}
 <p class="text-dim empty-state">No activities yet. <a href="/activities/new">Add your first one</a>.</p>
+{% else %}
+<p class="text-dim empty-state">No activities on this page.</p>
 {% endif %}
 
 <dialog id="activities-map-dialog" class="activities-map-dialog" aria-label="Activities track map">
