@@ -42,7 +42,7 @@ The biggest practical gap is the **disconnected phone → server pipeline**. Mos
 | personal-records | PR detection from existing speed/distance data | 1 | pending |
 | fit-import | FIT/TCX import with HR/cadence/power extraction | 1 | pending |
 | heatmap | Aggregate activity heatmap on stats/map page | 2 | pending |
-| tests | pytest coverage for GPX parsing, stats, objectives | 4 | pending |
+| tests | pytest coverage for GPX parsing, stats, objectives | 4 | done |
 
 ---
 
@@ -202,7 +202,9 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 ## Tier 4 — Quality, ops, and UX polish
 
-### 14. Automated tests
+### 14. Automated tests ✓
+
+**Status:** Done — pytest suite covers GPX parsing/trim/aggregation, stats filters, and objective progress.
 
 **Why:** No test suite found. GPX parsing, trim logic, stats aggregation, and elevation caching are regression-prone ([`app/services/gpx.py`](app/services/gpx.py), [`app/services/stats.py`](app/services/stats.py)).
 

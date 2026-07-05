@@ -44,6 +44,14 @@ alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
+Run tests (with the venv activated, or use the venv binary directly):
+
+```bash
+pytest
+# or without activating:
+.venv/bin/pytest
+```
+
 ## Configuration
 
 | Variable | Default | Description |
