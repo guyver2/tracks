@@ -65,6 +65,14 @@
     window.addEventListener("resize", function () {
       map.invalidateSize();
     });
+    if (window.TracksMapFullscreen) {
+      window.TracksMapFullscreen.attach(mapEl, {
+        title: "Track preview",
+        invalidate: function () {
+          map.invalidateSize();
+        },
+      });
+    }
   }
 
   function styleFeature(feature) {

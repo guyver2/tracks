@@ -48,6 +48,7 @@ from app.services.map_cache import (
     refresh_track_map_cache,
 )
 from app.services.personal_records import get_personal_records, records_for_activity, refresh_personal_records_cache
+from app.services.heatmap import invalidate_heatmap_cache
 from app.services.uploads import delete_file, save_gpx, save_photo
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -75,6 +76,7 @@ def _parse_date(value: str) -> date:
 
 def _refresh_personal_records(db: Session) -> None:
     refresh_personal_records_cache(db, GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE)
+    invalidate_heatmap_cache()
 
 
 def _clear_gpx_data(activity: Activity) -> None:

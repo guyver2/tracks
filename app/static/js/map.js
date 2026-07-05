@@ -15,6 +15,13 @@
     maxZoom: 19,
   }).addTo(map);
 
+  if (window.TracksMapFullscreen) {
+    window.TracksMapFullscreen.attach(mapEl, {
+      title: "Activity map",
+      invalidate: invalidate,
+    });
+  }
+
   let hoverMarker = null;
   let trackLayers = {};
   let activeTrackId = null;

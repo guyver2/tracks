@@ -1,9 +1,10 @@
 import json
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Activity, ActivityType
 from app.db.session import get_db
 from app.config import GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE
+from app.services.heatmap import get_heatmap_data
 from app.services.objectives import all_objectives_with_progress
 from app.services.personal_records import HIGHLIGHT_RECORD_KEYS, get_personal_records
 from app.services.stats import (
@@ -28,6 +30,26 @@ router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
 VALID_ACTIVITY_TYPES = frozenset(t.value for t in ActivityType)
+
+
+def _stats_heatmap_url(
+    activity_type: str | None,
+    preset: str,
+    date_from: str | None,
+    date_to: str | None,
+) -> str:
+    params: dict[str, str] = {}
+    if activity_type in VALID_ACTIVITY_TYPES:
+        params["activity_type"] = activity_type
+    if preset != "all":
+        params["preset"] = preset
+    if date_from:
+        params["date_from"] = date_from
+    if date_to:
+        params["date_to"] = date_to
+    if not params:
+        return "/stats/heatmap.json"
+    return "/stats/heatmap.json?" + urlencode(params)
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -107,7 +129,33 @@ def stats_page(
             "calendar": get_activity_calendar(db),
             "personal_records": personal_records,
             "show_all_records_link": False,
+            "heatmap_url": _stats_heatmap_url(activity_type, preset, date_from, date_to),
         },
+    )
+
+
+@router.get("/stats/heatmap.json")
+def stats_heatmap_json(
+    db: Session = Depends(get_db),
+    activity_type: str | None = Query(None),
+    preset: str = Query("all"),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
+    start, end, _period_label = resolve_date_range(preset, date_from, date_to)
+    parsed_type = (
+        ActivityType(activity_type)
+        if activity_type in VALID_ACTIVITY_TYPES
+        else None
+    )
+    return JSONResponse(
+        get_heatmap_data(
+            db,
+            GPX_UPLOAD_DIR,
+            activity_type=parsed_type,
+            start=start,
+            end=end,
+        )
     )
 
 

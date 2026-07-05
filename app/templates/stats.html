@@ -4,6 +4,7 @@
 {% block title %}Stats — Tracks{% endblock %}
 
 {% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 {% endblock %}
 
@@ -71,6 +72,20 @@
 {% include "partials/personal_records.html" %}
 </div>
 
+<section class="section stats-heatmap-section" id="activity-heatmap">
+  <div class="section-header">
+    <h2 class="section-title">Where you've been</h2>
+  </div>
+  <p class="text-dim stats-heatmap-subtitle">Track density for the current filters</p>
+  <p id="stats-heatmap-status" class="text-dim stats-heatmap-status" hidden aria-live="polite"></p>
+  <div id="stats-heatmap-map"
+       class="map-container stats-heatmap-map"
+       data-heatmap-url="{{ heatmap_url }}"></div>
+  <p id="stats-heatmap-empty" class="text-dim stats-heatmap-empty" hidden>
+    No GPX tracks in this period.
+  </p>
+</section>
+
 <div class="chart-section">
   <div class="chart-section-controls">
     <label class="chart-group-field">
@@ -116,6 +131,10 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="/static/js/map_fullscreen.js"></script>
+<script src="/static/js/stats_heatmap.js"></script>
 <script>
 document.getElementById('preset-select').addEventListener('change', function () {
   document.getElementById('custom-dates').style.display =

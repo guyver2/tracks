@@ -210,6 +210,27 @@
     }).addTo(map);
     window.addEventListener("resize", invalidate);
     window.addEventListener("orientationchange", invalidate);
+    setupExpandButton();
+  }
+
+  function setupExpandButton() {
+    const header = dialog.querySelector(".activities-map-header");
+    if (!header || header.querySelector(".activities-map-expand")) return;
+
+    const expandBtn = document.createElement("button");
+    expandBtn.type = "button";
+    expandBtn.className = "btn btn-secondary btn-icon activities-map-expand desktop-only-control";
+    expandBtn.setAttribute("aria-label", "Expand map");
+    expandBtn.title = "Expand";
+    expandBtn.innerHTML = '<span aria-hidden="true">⤢</span>';
+    header.insertBefore(expandBtn, closeBtn);
+
+    expandBtn.addEventListener("click", function () {
+      const expanded = dialog.classList.toggle("activities-map-dialog--expanded");
+      expandBtn.setAttribute("aria-label", expanded ? "Restore map size" : "Expand map");
+      expandBtn.title = expanded ? "Restore" : "Expand";
+      invalidate();
+    });
   }
 
   async function openDialog() {
@@ -231,5 +252,8 @@
   dialog.addEventListener("click", function (event) {
     if (event.target === dialog) dialog.close();
   });
-  dialog.addEventListener("close", invalidate);
+  dialog.addEventListener("close", function () {
+    dialog.classList.remove("activities-map-dialog--expanded");
+    invalidate();
+  });
 })();

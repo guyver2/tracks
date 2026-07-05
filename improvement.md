@@ -41,7 +41,7 @@ The biggest practical gap is the **disconnected phone → server pipeline**. Mos
 | search-pagination | Activity list search, sort, and pagination | 1 | done |
 | personal-records | PR detection from existing speed/distance data | 1 | done |
 | fit-import | FIT/TCX import with HR/cadence/power extraction | 1 | pending |
-| heatmap | Aggregate activity heatmap on stats/map page | 2 | pending |
+| heatmap | Aggregate activity heatmap on stats/map page | 2 | done |
 | tests | pytest coverage for GPX parsing, stats, objectives | 4 | done |
 
 ---
@@ -135,7 +135,9 @@ Build on data you almost already capture.
 
 **Effort:** Medium (depends on FIT import) · **Value:** Medium for cyclists/runners with sensors.
 
-### 8. Activity heatmap & “where I’ve been” map
+### 8. Activity heatmap & “where I’ve been” map ✓
+
+**Status:** Done — stats page heatmap section with Leaflet.heat, filtered by activity type and date range, with disk cache.
 
 **Why:** Stats page has calendar and charts but no geographic aggregate view—a classic Strava-style personal insight.
 

@@ -10,6 +10,7 @@ GPX_UPLOAD_DIR = DATA_DIR / "uploads" / "gpx"
 PHOTO_UPLOAD_DIR = DATA_DIR / "uploads" / "photos"
 ELEVATION_CACHE_DIR = DATA_DIR / "elevation_cache"
 MAP_GEOJSON_CACHE_DIR = DATA_DIR / "map_cache"
+HEATMAP_CACHE_DIR = DATA_DIR / "heatmap_cache"
 PERSONAL_RECORDS_CACHE_FILE = DATA_DIR / "personal_records.json"
 
 ELEVATION_SOURCE = os.environ.get("ELEVATION_SOURCE", "dem").lower()
@@ -33,6 +34,7 @@ def ensure_data_dirs() -> None:
     PHOTO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     ELEVATION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     MAP_GEOJSON_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    HEATMAP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def elevation_enabled() -> bool:
