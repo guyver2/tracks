@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.config import (
     GPX_UPLOAD_DIR,
+    MAP_GEOJSON_CACHE_DIR,
     MAX_PHOTOS_PER_ACTIVITY,
     MAX_TRACKS_PER_ACTIVITY,
     PHOTO_UPLOAD_DIR,
@@ -25,7 +26,7 @@ from app.services.elevation import (
 )
 from app.services.elevation_worker import get_worker
 from app.services.gpx import (
-    activities_tracks_to_geojson,
+    activities_map_manifest,
     aggregate_track_stats,
     bounds_to_json,
     build_stacked_elevation_profile,
@@ -38,6 +39,11 @@ from app.services.gpx import (
     track_label,
     tracks_to_geojson,
     sorted_activity_tracks,
+)
+from app.services.map_cache import (
+    delete_map_caches_for_gpx,
+    get_track_map_geojson,
+    refresh_track_map_cache,
 )
 from app.services.uploads import delete_file, save_gpx, save_photo
 
@@ -65,6 +71,7 @@ def _parse_date(value: str) -> date:
 def _clear_gpx_data(activity: Activity) -> None:
     for track in list(activity.tracks):
         delete_file(GPX_UPLOAD_DIR, track.gpx_filename)
+        delete_map_caches_for_gpx(MAP_GEOJSON_CACHE_DIR, track.gpx_filename)
         delete_elevation_cache(track.gpx_filename)
         get_worker().cancel(track.gpx_filename)
         activity.tracks.remove(track)
@@ -217,18 +224,21 @@ async def _add_gpx_tracks(
                 trim_end=0,
             )
             recompute_track_start_time(track, GPX_UPLOAD_DIR)
+            refresh_track_map_cache(track, GPX_UPLOAD_DIR, MAP_GEOJSON_CACHE_DIR)
             added_tracks.append(track)
             saved_filename = None
         except ValueError as e:
             errors.append(str(e))
             if saved_filename:
                 delete_file(GPX_UPLOAD_DIR, saved_filename)
+                delete_map_caches_for_gpx(MAP_GEOJSON_CACHE_DIR, saved_filename)
     return added_tracks
 
 
 def _cleanup_added_tracks(tracks: list[ActivityTrack], activity: Activity) -> None:
     for track in tracks:
         delete_file(GPX_UPLOAD_DIR, track.gpx_filename)
+        delete_map_caches_for_gpx(MAP_GEOJSON_CACHE_DIR, track.gpx_filename)
         if track in activity.tracks:
             activity.tracks.remove(track)
 
@@ -326,12 +336,16 @@ def _apply_existing_track_updates(
     activity: Activity,
 ) -> None:
     for track, trim_start, trim_end in updates:
+        if track.trim_start != trim_start or track.trim_end != trim_end:
+            delete_map_caches_for_gpx(MAP_GEOJSON_CACHE_DIR, track.gpx_filename)
         track.trim_start = trim_start
         track.trim_end = trim_end
         recompute_track_start_time(track, GPX_UPLOAD_DIR)
+        refresh_track_map_cache(track, GPX_UPLOAD_DIR, MAP_GEOJSON_CACHE_DIR)
 
     for track in removals:
         delete_file(GPX_UPLOAD_DIR, track.gpx_filename)
+        delete_map_caches_for_gpx(MAP_GEOJSON_CACHE_DIR, track.gpx_filename)
         delete_elevation_cache(track.gpx_filename)
         get_worker().cancel(track.gpx_filename)
         activity.tracks.remove(track)
@@ -454,10 +468,10 @@ def _activity_filter_params(
     return params
 
 
-def _map_geojson_url(filter_params: dict[str, str]) -> str:
+def _map_manifest_url(filter_params: dict[str, str]) -> str:
     if not filter_params:
-        return "/activities/map.geojson"
-    return "/activities/map.geojson?" + urlencode(filter_params)
+        return "/activities/map/manifest.json"
+    return "/activities/map/manifest.json?" + urlencode(filter_params)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -483,7 +497,7 @@ def list_activities(
             "active_nav": "activities",
             "activities": activities,
             "has_tracks": has_tracks,
-            "map_geojson_url": _map_geojson_url(filter_params),
+            "map_manifest_url": _map_manifest_url(filter_params),
             "filters": {
                 "activity_type": activity_type or "",
                 "date_from": date_from or "",
@@ -493,8 +507,8 @@ def list_activities(
     )
 
 
-@router.get("/map.geojson")
-def activities_map_geojson(
+@router.get("/map/manifest.json")
+def activities_map_manifest_json(
     db: Annotated[Session, Depends(get_db)],
     activity_type: str | None = Query(None),
     date_from: str | None = Query(None),
@@ -505,7 +519,17 @@ def activities_map_geojson(
         .options(joinedload(Activity.tracks))
         .all()
     )
-    geojson = activities_tracks_to_geojson(activities, GPX_UPLOAD_DIR)
+    return JSONResponse(activities_map_manifest(activities, GPX_UPLOAD_DIR, MAP_GEOJSON_CACHE_DIR))
+
+
+@router.get("/map/tracks/{track_id}.geojson")
+def activities_map_track_geojson(track_id: int, db: Annotated[Session, Depends(get_db)]):
+    track = db.get(ActivityTrack, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    geojson = get_track_map_geojson(track, GPX_UPLOAD_DIR, MAP_GEOJSON_CACHE_DIR)
+    if geojson is None:
+        raise HTTPException(status_code=404, detail="Track file missing")
     return JSONResponse(geojson)
 
 
@@ -804,6 +828,7 @@ def delete_activity(activity_id: int, db: Annotated[Session, Depends(get_db)]):
     activity = _get_activity_or_404(db, activity_id)
     for track in activity.tracks:
         delete_file(GPX_UPLOAD_DIR, track.gpx_filename)
+        delete_map_caches_for_gpx(MAP_GEOJSON_CACHE_DIR, track.gpx_filename)
         delete_elevation_cache(track.gpx_filename)
         get_worker().cancel(track.gpx_filename)
     for photo in activity.photos:

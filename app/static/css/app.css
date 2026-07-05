@@ -1272,8 +1272,20 @@ input[type="file"].file-upload-input {
   border-bottom: 1px solid var(--border);
 }
 
+.activities-map-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
 .activities-map-title {
   margin: 0;
+}
+
+.activities-map-status {
+  margin: 0;
+  font-size: 0.82rem;
 }
 
 .activities-map-container {

@@ -9,6 +9,7 @@ DATABASE_URL = os.environ.get(
 GPX_UPLOAD_DIR = DATA_DIR / "uploads" / "gpx"
 PHOTO_UPLOAD_DIR = DATA_DIR / "uploads" / "photos"
 ELEVATION_CACHE_DIR = DATA_DIR / "elevation_cache"
+MAP_GEOJSON_CACHE_DIR = DATA_DIR / "map_cache"
 
 ELEVATION_SOURCE = os.environ.get("ELEVATION_SOURCE", "dem").lower()
 OPENTOPODATA_BASE_URL = os.environ.get(
@@ -29,6 +30,7 @@ def ensure_data_dirs() -> None:
     GPX_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     PHOTO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     ELEVATION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    MAP_GEOJSON_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def elevation_enabled() -> bool:

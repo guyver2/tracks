@@ -4,24 +4,35 @@
   const closeBtn = dialog && dialog.querySelector(".activities-map-close");
   const mapEl = document.getElementById("activities-map");
   const emptyEl = document.getElementById("activities-map-empty");
+  const statusEl = document.getElementById("activities-map-status");
   if (!dialog || !openBtn || !closeBtn || !mapEl) return;
 
-  const geojsonUrl = mapEl.dataset.geojsonUrl;
+  const manifestUrl = mapEl.dataset.manifestUrl;
   const TRACE_WEIGHT = 3;
+  const LOAD_CONCURRENCY = 4;
+  const DEFAULT_VIEW = [46.5, 2.5];
+  const DEFAULT_ZOOM = 5;
+
   let map = null;
   let layerGroup = null;
   let loaded = false;
+  let trackMetaById = {};
 
   function invalidate() {
     if (!map) return;
     map.invalidateSize();
   }
 
+  function setStatus(text, visible) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.hidden = !visible;
+  }
+
   function styleFeature(feature) {
-    const color =
-      feature.properties && feature.properties.color
-        ? feature.properties.color
-        : "#FC4C02";
+    const trackId = feature.properties && feature.properties.track_id;
+    const meta = trackId != null ? trackMetaById[trackId] : null;
+    const color = (meta && meta.color) || "#FC4C02";
     return {
       color: color,
       weight: TRACE_WEIGHT,
@@ -30,8 +41,10 @@
   }
 
   function bindFeature(feature, layer) {
-    const label = feature.properties && feature.properties.label;
-    const activityId = feature.properties && feature.properties.activity_id;
+    const trackId = feature.properties && feature.properties.track_id;
+    const meta = trackId != null ? trackMetaById[trackId] : null;
+    const label = meta && meta.label;
+    const activityId = meta && meta.activity_id;
     if (label) {
       layer.bindTooltip(label, { sticky: true, opacity: 0.92 });
     }
@@ -42,19 +55,122 @@
     });
   }
 
-  async function loadTracks() {
-    if (!geojsonUrl) return showEmpty();
-    const resp = await fetch(geojsonUrl);
-    if (!resp.ok) return showEmpty();
-    const data = await resp.json();
-    const features =
-      data.type === "FeatureCollection"
-        ? data.features || []
-        : data.type === "Feature"
-          ? [data]
-          : [];
+  function boundsToLeaflet(bounds) {
+    if (!bounds) return null;
+    return [
+      [bounds.min_lat, bounds.min_lng],
+      [bounds.max_lat, bounds.max_lng],
+    ];
+  }
 
-    if (!features.length) return showEmpty();
+  function fitToBounds(bounds) {
+    const leafletBounds = boundsToLeaflet(bounds);
+    if (leafletBounds) {
+      map.fitBounds(leafletBounds, { padding: [24, 24] });
+      return;
+    }
+    map.setView(DEFAULT_VIEW, DEFAULT_ZOOM);
+  }
+
+  function boundsIntersect(trackBounds, mapBounds) {
+    if (!trackBounds || !mapBounds) return false;
+    return !(
+      trackBounds.max_lat < mapBounds.getSouth() ||
+      trackBounds.min_lat > mapBounds.getNorth() ||
+      trackBounds.max_lng < mapBounds.getWest() ||
+      trackBounds.min_lng > mapBounds.getEast()
+    );
+  }
+
+  function boundsCenterDistance(trackBounds, center) {
+    if (!trackBounds) return Number.POSITIVE_INFINITY;
+    const lat = (trackBounds.min_lat + trackBounds.max_lat) / 2;
+    const lng = (trackBounds.min_lng + trackBounds.max_lng) / 2;
+    const dLat = lat - center.lat;
+    const dLng = lng - center.lng;
+    return dLat * dLat + dLng * dLng;
+  }
+
+  function sortTracksForViewport(tracks, mapBounds) {
+    const center = mapBounds.getCenter();
+    return tracks.slice().sort(function (a, b) {
+      const aVisible = boundsIntersect(a.bounds, mapBounds);
+      const bVisible = boundsIntersect(b.bounds, mapBounds);
+      if (aVisible !== bVisible) return aVisible ? -1 : 1;
+      return boundsCenterDistance(a.bounds, center) - boundsCenterDistance(b.bounds, center);
+    });
+  }
+
+  function waitForMapBounds() {
+    return new Promise(function (resolve) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(resolve);
+      });
+    });
+  }
+
+  function ensureLayerGroup() {
+    if (layerGroup) return layerGroup;
+    layerGroup = L.featureGroup().addTo(map);
+    return layerGroup;
+  }
+
+  function addFeature(feature) {
+    L.geoJSON(feature, {
+      style: styleFeature,
+      onEachFeature: bindFeature,
+    }).addTo(ensureLayerGroup());
+  }
+
+  async function fetchTrackFeature(trackId) {
+    const resp = await fetch("/activities/map/tracks/" + trackId + ".geojson");
+    if (!resp.ok) return null;
+    return resp.json();
+  }
+
+  async function loadTracksProgressive(tracks) {
+    let loadedCount = 0;
+    let nextIndex = 0;
+    const total = tracks.length;
+
+    setStatus("Loading tracks 0 / " + total + "…", true);
+
+    async function worker() {
+      while (nextIndex < total) {
+        const track = tracks[nextIndex];
+        nextIndex += 1;
+        try {
+          const feature = await fetchTrackFeature(track.track_id);
+          if (feature) addFeature(feature);
+        } catch {
+          // Skip failed tracks and continue loading the rest.
+        }
+        loadedCount += 1;
+        setStatus("Loading tracks " + loadedCount + " / " + total + "…", loadedCount < total);
+      }
+    }
+
+    const workerCount = Math.min(LOAD_CONCURRENCY, total);
+    await Promise.all(Array.from({ length: workerCount }, worker));
+    setStatus("", false);
+    invalidate();
+  }
+
+  async function loadTracks() {
+    if (!manifestUrl) return showEmpty();
+
+    setStatus("Loading map…", true);
+    const resp = await fetch(manifestUrl);
+    if (!resp.ok) return showEmpty();
+
+    const manifest = await resp.json();
+    const tracks = manifest.tracks || [];
+    trackMetaById = {};
+    tracks.forEach(function (track) {
+      trackMetaById[track.track_id] = track;
+    });
+
+    if (!tracks.length) return showEmpty();
 
     if (emptyEl) emptyEl.hidden = true;
     mapEl.hidden = false;
@@ -64,26 +180,23 @@
       layerGroup = null;
     }
 
-    layerGroup = L.featureGroup();
-    features.forEach(function (feature) {
-      L.geoJSON(feature, {
-        style: styleFeature,
-        onEachFeature: bindFeature,
-      }).addTo(layerGroup);
-    });
-    layerGroup.addTo(map);
-    map.fitBounds(layerGroup.getBounds(), { padding: [24, 24] });
+    fitToBounds(manifest.bounds);
     invalidate();
+    await waitForMapBounds();
+    const sortedTracks = sortTracksForViewport(tracks, map.getBounds());
+    await loadTracksProgressive(sortedTracks);
   }
 
   function showEmpty() {
+    trackMetaById = {};
     if (layerGroup) {
       map.removeLayer(layerGroup);
       layerGroup = null;
     }
     mapEl.hidden = true;
     if (emptyEl) emptyEl.hidden = false;
-    map.setView([46.5, 2.5], 5);
+    setStatus("", false);
+    map.setView(DEFAULT_VIEW, DEFAULT_ZOOM);
     invalidate();
   }
 

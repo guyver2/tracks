@@ -32,6 +32,7 @@ ELEVATION_GAP_KM = 0.1
 _MIN_POINTS_AFTER_TRIM = 2
 _MIN_ELEVATION_DELTA_M = 5.0
 _MAX_PROFILE_POINTS = 300
+_MAX_MAP_POINTS = 150
 _MIN_SPEED_DT_SEC = 1
 _SPEED_WINDOW_M = 100
 
@@ -356,38 +357,62 @@ def tracks_to_geojson(tracks: list["ActivityTrack"], upload_dir: Path) -> dict:
     return {"type": "FeatureCollection", "features": features}
 
 
-def activities_tracks_to_geojson(activities: list["Activity"], upload_dir: Path) -> dict:
-    features: list[dict] = []
+def downsample_coordinates(
+    coordinates: list[list[float]], max_points: int = _MAX_MAP_POINTS
+) -> list[list[float]]:
+    n = len(coordinates)
+    if n <= max_points:
+        return coordinates
+    step = (n - 1) / (max_points - 1)
+    indices = [round(i * step) for i in range(max_points)]
+    indices[-1] = n - 1
+    return [coordinates[i] for i in indices]
+
+
+def merge_bounds(bounds_list: list[dict[str, float]]) -> dict[str, float] | None:
+    if not bounds_list:
+        return None
+    return {
+        "min_lat": min(bounds["min_lat"] for bounds in bounds_list),
+        "max_lat": max(bounds["max_lat"] for bounds in bounds_list),
+        "min_lng": min(bounds["min_lng"] for bounds in bounds_list),
+        "max_lng": max(bounds["max_lng"] for bounds in bounds_list),
+    }
+
+
+def activities_map_manifest(
+    activities: list["Activity"], upload_dir: Path, cache_dir: Path
+) -> dict:
+    from app.services.map_cache import track_map_bounds
+
+    tracks: list[dict] = []
+    bounds_list: list[dict[str, float]] = []
+
     for activity_index, activity in enumerate(activities):
         if not activity.tracks:
             continue
         sorted_tracks = _sorted_tracks(activity.tracks, upload_dir)
         for track_index, track in enumerate(sorted_tracks):
-            path = upload_dir / track.gpx_filename
-            if not path.exists():
-                continue
-            try:
-                stats = _parse_activity_track(track, path)
-            except ValueError:
-                continue
             label = activity.name
             if len(sorted_tracks) > 1:
                 label = f"{activity.name} — {track_label(track, track_index)}"
-            features.append(
+            track_bounds = track_map_bounds(track, upload_dir, cache_dir)
+            if track_bounds:
+                bounds_list.append(track_bounds)
+            tracks.append(
                 {
-                    "type": "Feature",
-                    "geometry": {"type": "LineString", "coordinates": stats.coordinates},
-                    "properties": {
-                        "color": track_color(activity_index),
-                        "label": label,
-                        "activity_id": activity.id,
-                        "activity_name": activity.name,
-                        "track_id": track.id,
-                    },
+                    "track_id": track.id,
+                    "activity_id": activity.id,
+                    "label": label,
+                    "color": track_color(activity_index),
+                    "bounds": track_bounds,
                 }
             )
 
-    return {"type": "FeatureCollection", "features": features}
+    return {
+        "tracks": tracks,
+        "bounds": merge_bounds(bounds_list),
+    }
 
 
 def gpx_to_geojson(path: Path) -> dict:
