@@ -1,0 +1,14 @@
+{% if personal_records %}
+<div class="personal-records-list">
+  {% for record in personal_records %}
+  <a href="/activities/{{ record.activity_id }}" class="personal-record-row">
+    <span class="personal-record-label">{{ record.label }}</span>
+    <span class="personal-record-value">{{ record.value_display }}</span>
+    <span class="personal-record-activity">{{ record.activity_name }}</span>
+    <span class="personal-record-date text-dim">{{ record.activity_date.isoformat() }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-dim">No personal records yet.</p>
+{% endif %}

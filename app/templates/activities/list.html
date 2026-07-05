@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros.html" import format_duration, format_elevation_gain_compact, format_elevation_m, type_badge %}
+{% from "activities/partials/sortable_header.html" import sortable_header, sortable_link %}
 
 {% block title %}Activities — Tracks{% endblock %}
 
@@ -31,6 +32,9 @@
   Search &amp; filters{% if filters_active %} <span class="text-dim">(active)</span>{% endif %}
 </label>
 <form class="filter-bar" method="get" action="/activities">
+  {% if filters.sort and filters.sort != 'date_desc' %}
+  <input type="hidden" name="sort" value="{{ filters.sort }}">
+  {% endif %}
   <div class="filter-row">
     <label class="filter-search">
       <span class="field-label">Search</span>
@@ -55,17 +59,6 @@
       <span class="field-label">To</span>
       <input type="date" name="date_to" value="{{ filters.date_to }}">
     </label>
-    <label>
-      <span class="field-label">Sort</span>
-      <select name="sort">
-        <option value="date_desc"{% if filters.sort == 'date_desc' %} selected{% endif %}>Date (newest)</option>
-        <option value="date_asc"{% if filters.sort == 'date_asc' %} selected{% endif %}>Date (oldest)</option>
-        <option value="distance_desc"{% if filters.sort == 'distance_desc' %} selected{% endif %}>Distance (longest)</option>
-        <option value="distance_asc"{% if filters.sort == 'distance_asc' %} selected{% endif %}>Distance (shortest)</option>
-        <option value="elevation_desc"{% if filters.sort == 'elevation_desc' %} selected{% endif %}>Elevation (most)</option>
-        <option value="elevation_asc"{% if filters.sort == 'elevation_asc' %} selected{% endif %}>Elevation (least)</option>
-      </select>
-    </label>
     <button type="submit" class="btn btn-secondary">Apply</button>
   </div>
 </form>
@@ -77,6 +70,12 @@
 {% endif %}
 
 <div class="activity-cards mobile-only">
+  <nav class="activity-sort-row" aria-label="Sort activities">
+    {{ sortable_link('Date', 'date', sort_field, sort_dir, activities_sort_url) }}
+    {{ sortable_link('Distance', 'distance', sort_field, sort_dir, activities_sort_url) }}
+    {{ sortable_link('Duration', 'duration', sort_field, sort_dir, activities_sort_url) }}
+    {{ sortable_link('Elevation', 'elevation', sort_field, sort_dir, activities_sort_url) }}
+  </nav>
   {% for activity in activities %}
   <a href="/activities/{{ activity.id }}" class="activity-card">
     <div class="activity-card-top">
@@ -97,13 +96,13 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>Date</th>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Place</th>
-        <th>Distance</th>
-        <th>Duration</th>
-        <th>Elevation</th>
+        {{ sortable_header('Date', 'date', sort_field, sort_dir, activities_sort_url) }}
+        <th scope="col">Name</th>
+        <th scope="col">Type</th>
+        <th scope="col">Place</th>
+        {{ sortable_header('Distance', 'distance', sort_field, sort_dir, activities_sort_url) }}
+        {{ sortable_header('Duration', 'duration', sort_field, sort_dir, activities_sort_url) }}
+        {{ sortable_header('Elevation', 'elevation', sort_field, sort_dir, activities_sort_url) }}
       </tr>
     </thead>
     <tbody>

@@ -39,7 +39,7 @@ The biggest practical gap is the **disconnected phone → server pipeline**. Mos
 | sync-api | Android ↔ server GPX upload API + token auth | 1 | pending |
 | export-backup | Per-activity GPX download and bulk backup/export | 1 | pending |
 | search-pagination | Activity list search, sort, and pagination | 1 | done |
-| personal-records | PR detection from existing speed/distance data | 1 | pending |
+| personal-records | PR detection from existing speed/distance data | 1 | done |
 | fit-import | FIT/TCX import with HR/cadence/power extraction | 1 | pending |
 | heatmap | Aggregate activity heatmap on stats/map page | 2 | pending |
 | tests | pytest coverage for GPX parsing, stats, objectives | 4 | done |
@@ -85,7 +85,9 @@ These extend the existing product without turning it into Strava.
 
 **Effort:** Low · **Value:** Medium–high over time.
 
-### 4. Personal records (PRs) and “best efforts”
+### 4. Personal records (PRs) and “best efforts” ✓
+
+**Status:** Done — longest distance/elevation/duration, per-type distance leaders, best 5k/10k/half marathon from GPX timestamps; badges on activity detail, records on dashboard and stats.
 
 **Why:** Strava’s stickiest feature for solo athletes is automatic PR detection—not social kudos.
 

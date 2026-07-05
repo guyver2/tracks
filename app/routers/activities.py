@@ -15,6 +15,7 @@ from app.config import (
     MAP_GEOJSON_CACHE_DIR,
     MAX_PHOTOS_PER_ACTIVITY,
     MAX_TRACKS_PER_ACTIVITY,
+    PERSONAL_RECORDS_CACHE_FILE,
     PHOTO_UPLOAD_DIR,
     elevation_enabled,
 )
@@ -46,6 +47,7 @@ from app.services.map_cache import (
     get_track_map_geojson,
     refresh_track_map_cache,
 )
+from app.services.personal_records import get_personal_records, records_for_activity, refresh_personal_records_cache
 from app.services.uploads import delete_file, save_gpx, save_photo
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -53,7 +55,7 @@ router = APIRouter(prefix="/activities", tags=["activities"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
 VALID_ACTIVITY_TYPES = frozenset(t.value for t in ActivityType)
-VALID_SORT_FIELDS = frozenset({"date", "distance", "elevation"})
+VALID_SORT_FIELDS = frozenset({"date", "distance", "duration", "elevation"})
 DEFAULT_SORT = "date_desc"
 
 
@@ -69,6 +71,10 @@ def _parse_date(value: str) -> date:
         return date.fromisoformat(value)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid date format") from e
+
+
+def _refresh_personal_records(db: Session) -> None:
+    refresh_personal_records_cache(db, GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE)
 
 
 def _clear_gpx_data(activity: Activity) -> None:
@@ -478,6 +484,10 @@ def _filtered_activities_query(
             if descending
             else Activity.elevation_gain_m.asc()
         )
+    elif sort_field == "duration":
+        ordered = nulls_last(
+            Activity.duration_sec.desc() if descending else Activity.duration_sec.asc()
+        )
     else:
         ordered = Activity.date.desc() if descending else Activity.date.asc()
 
@@ -500,6 +510,31 @@ def _parse_sort(sort: str | None) -> tuple[str, str]:
         if field in VALID_SORT_FIELDS:
             return field, "desc"
     return "date", "desc"
+
+
+def _next_sort(column: str, current_sort: str | None) -> str:
+    if column not in VALID_SORT_FIELDS:
+        return DEFAULT_SORT
+    field, direction = _parse_sort(current_sort)
+    if field == column:
+        direction = "asc" if direction == "desc" else "desc"
+    else:
+        direction = "desc"
+    return f"{column}_{direction}"
+
+
+def _activities_sort_url(
+    base_params: dict[str, str],
+    column: str,
+    current_sort: str | None,
+) -> str:
+    params = {key: value for key, value in base_params.items() if key != "page"}
+    next_sort = _next_sort(column, current_sort)
+    if next_sort == DEFAULT_SORT:
+        params.pop("sort", None)
+    else:
+        params["sort"] = next_sort
+    return _activities_list_url(params)
 
 
 def _activity_filter_params(
@@ -612,7 +647,10 @@ def list_activities(
         or activity_type in VALID_ACTIVITY_TYPES
         or date_from
         or date_to
-        or sort != DEFAULT_SORT
+    )
+    sort_field, sort_dir = _parse_sort(sort)
+    list_params = _activity_filter_params(
+        activity_type, date_from, date_to, q=q, sort=sort
     )
     return templates.TemplateResponse(
         request,
@@ -626,6 +664,9 @@ def list_activities(
             "pagination": pagination,
             "list_query_params": filter_params,
             "activities_list_url": _activities_list_url,
+            "activities_sort_url": lambda column: _activities_sort_url(list_params, column, sort),
+            "sort_field": sort_field,
+            "sort_dir": sort_dir,
             "any_activities": any_activities,
             "filters_active": filters_active,
             "filters": {
@@ -768,6 +809,7 @@ async def create_activity(
     db.add(activity)
     db.commit()
     db.refresh(activity)
+    _refresh_personal_records(db)
     if parsed_type.supports_track and added_tracks:
         _enqueue_elevation_jobs(activity, added_tracks)
     return RedirectResponse(url=f"/activities/{activity.id}", status_code=303)
@@ -789,6 +831,9 @@ def activity_detail(
     elif flash == "deleted":
         flash_msg = {"type": "success", "message": "Activity deleted."}
 
+    all_records = get_personal_records(db, GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE)
+    activity_records = records_for_activity(activity.id, all_records)
+
     return templates.TemplateResponse(
         request,
         "activities/detail.html",
@@ -798,6 +843,7 @@ def activity_detail(
             "activity": activity,
             "flash": flash_msg,
             "has_gpx": bool(activity.tracks),
+            "activity_records": activity_records,
         },
     )
 
@@ -872,6 +918,7 @@ def duplicate_activity(
     db.add(duplicate)
     db.commit()
     db.refresh(duplicate)
+    _refresh_personal_records(db)
     return RedirectResponse(url=f"/activities/{duplicate.id}/edit", status_code=303)
 
 
@@ -959,6 +1006,7 @@ async def update_activity(
         )
 
     db.commit()
+    _refresh_personal_records(db)
     if parsed_type.supports_track and added_tracks:
         _enqueue_elevation_jobs(activity, added_tracks)
     return RedirectResponse(url=f"/activities/{activity_id}?flash=updated", status_code=303)
@@ -976,4 +1024,5 @@ def delete_activity(activity_id: int, db: Annotated[Session, Depends(get_db)]):
         delete_file(PHOTO_UPLOAD_DIR, photo.filename)
     db.delete(activity)
     db.commit()
+    _refresh_personal_records(db)
     return RedirectResponse(url="/activities?flash=deleted", status_code=303)

@@ -1,0 +1,15 @@
+{% macro sortable_header(label, column, sort_field, sort_dir, activities_sort_url) %}
+<th scope="col"{% if sort_field == column %} aria-sort="{{ 'descending' if sort_dir == 'desc' else 'ascending' }}"{% endif %}>
+  <a href="{{ activities_sort_url(column) }}"
+     class="sortable-header{% if sort_field == column %} sortable-active sortable-{{ sort_dir }}{% endif %}">
+    {{ label }}<span class="sort-indicator" aria-hidden="true"></span>
+  </a>
+</th>
+{% endmacro %}
+
+{% macro sortable_link(label, column, sort_field, sort_dir, activities_sort_url) %}
+<a href="{{ activities_sort_url(column) }}"
+   class="sortable-header{% if sort_field == column %} sortable-active sortable-{{ sort_dir }}{% endif %}">
+  {{ label }}<span class="sort-indicator" aria-hidden="true"></span>
+</a>
+{% endmacro %}

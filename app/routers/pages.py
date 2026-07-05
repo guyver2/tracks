@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Activity, ActivityType
 from app.db.session import get_db
+from app.config import GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE
 from app.services.objectives import all_objectives_with_progress
+from app.services.personal_records import HIGHLIGHT_RECORD_KEYS, get_personal_records
 from app.services.stats import (
     get_activity_calendar,
     get_time_series,
@@ -33,6 +35,11 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     month_start, month_end = month_bounds()
     recent = db.query(Activity).order_by(desc(Activity.date), desc(Activity.id)).limit(5).all()
     objectives = all_objectives_with_progress(db)[:5]
+    personal_records = [
+        record
+        for record in get_personal_records(db, GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE)
+        if record.key in HIGHLIGHT_RECORD_KEYS
+    ]
 
     return templates.TemplateResponse(
         request,
@@ -46,6 +53,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "objectives": objectives,
             "month_label": date.today().strftime("%B %Y"),
             "calendar": get_activity_calendar(db),
+            "personal_records": personal_records,
+            "show_all_records_link": True,
         },
     )
 
@@ -74,6 +83,7 @@ def stats_page(
     }
     breakdown = get_type_breakdown(db, start=start, end=end)
     totals = get_totals(db, activity_type=parsed_type, start=start, end=end)
+    personal_records = get_personal_records(db, GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE)
 
     return templates.TemplateResponse(
         request,
@@ -95,6 +105,8 @@ def stats_page(
             "type_counts": json.dumps(breakdown["counts"]),
             "type_distances": json.dumps(breakdown["distances"]),
             "calendar": get_activity_calendar(db),
+            "personal_records": personal_records,
+            "show_all_records_link": False,
         },
     )
 

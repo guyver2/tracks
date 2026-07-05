@@ -1,0 +1,12 @@
+{% if personal_records %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Personal records</h2>
+    {% if show_all_records_link %}
+    <a href="/stats#personal-records">View all</a>
+    {% endif %}
+  </div>
+  <p class="text-dim personal-records-subtitle">All-time personal bests</p>
+  {% include "partials/personal_records_list.html" %}
+</section>
+{% endif %}

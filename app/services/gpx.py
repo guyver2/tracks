@@ -992,3 +992,58 @@ def build_tracks_preview(
         "elevation": elevation,
         "speed": speed,
     }
+
+
+def load_stacked_track_points(
+    tracks: list["ActivityTrack"],
+    upload_dir: Path,
+) -> list[GpxPoint]:
+    """Concatenate trimmed GPX points from all tracks in sort order."""
+    all_points: list[GpxPoint] = []
+    for track in _sorted_tracks(tracks, upload_dir):
+        path = upload_dir / track.gpx_filename
+        if not path.exists():
+            continue
+        points = _load_gpx_points(path)
+        trim_start, trim_end = _normalize_trim(track.trim_start, track.trim_end)
+        try:
+            trimmed = apply_trim(points, trim_start, trim_end)
+        except ValueError:
+            continue
+        all_points.extend(trimmed)
+    return all_points
+
+
+def best_effort_time_sec(
+    points: list[GpxPoint],
+    target_km: float,
+    *,
+    min_dt_sec: float = _MIN_SPEED_DT_SEC,
+) -> int | None:
+    """Fastest elapsed time to cover at least target_km along the track."""
+    if len(points) < 2 or target_km <= 0:
+        return None
+
+    distances_m: list[float] = [0.0]
+    timestamps: list[datetime | None] = [points[0][3]]
+    for index in range(1, len(points)):
+        lat, lon, _, ts = points[index]
+        prev_lat, prev_lon, _, _ = points[index - 1]
+        distances_m.append(
+            distances_m[-1] + _haversine_km(prev_lat, prev_lon, lat, lon) * 1000
+        )
+        timestamps.append(ts)
+
+    target_m = target_km * 1000
+    best: int | None = None
+    start = 0
+    for end in range(1, len(points)):
+        while start < end and distances_m[end] - distances_m[start] >= target_m:
+            start_ts = timestamps[start]
+            end_ts = timestamps[end]
+            if start_ts is not None and end_ts is not None:
+                elapsed = int((end_ts - start_ts).total_seconds())
+                if elapsed >= min_dt_sec and (best is None or elapsed < best):
+                    best = elapsed
+            start += 1
+    return best

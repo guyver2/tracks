@@ -19,6 +19,13 @@
       <span>{{ activity.date.isoformat() }}</span>
       {% if activity.place %}<span>{{ activity.place }}</span>{% endif %}
     </div>
+    {% if activity_records %}
+    <div class="record-badges">
+      {% for record in activity_records %}
+      <span class="record-badge" title="{{ record.label }}: {{ record.value_display }}">{{ record.label }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
   <div class="header-actions">
     <details class="options-menu" id="activity-options">

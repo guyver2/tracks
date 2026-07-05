@@ -36,28 +36,56 @@
 </section>
 {% endif %}
 
-<section class="section">
-  <div class="section-header">
-    <h2 class="section-title">Recent activities</h2>
-    <a href="/activities">View all</a>
+<section class="section dashboard-highlights">
+  <div class="section-header dashboard-highlights-header">
+    <div class="profile-tabs dashboard-tabs" role="tablist" aria-label="Outings">
+      <button type="button"
+              class="profile-tab active"
+              data-tab="recent"
+              role="tab"
+              aria-selected="true"
+              aria-controls="dashboard-panel-recent"
+              id="dashboard-tab-recent">Latest</button>
+      <button type="button"
+              class="profile-tab"
+              data-tab="records"
+              role="tab"
+              aria-selected="false"
+              aria-controls="dashboard-panel-records"
+              id="dashboard-tab-records">Personal bests</button>
+    </div>
+    <a href="/activities" class="dashboard-highlights-link" data-tab-link="recent">View all</a>
+    <a href="/stats#personal-records" class="dashboard-highlights-link" data-tab-link="records" hidden>View all</a>
   </div>
-  {% if recent %}
-  <div class="activity-cards">
-    {% for activity in recent %}
-    <a href="/activities/{{ activity.id }}" class="activity-card">
-      <div class="activity-card-top">
-        <strong>{{ activity.name }}</strong>
-        {{ type_badge(activity.activity_type) }}
-      </div>
-      <div class="activity-card-meta">
-        <span>{{ activity.date.isoformat() }}</span>
-        {% if activity.distance_km %}<span>{{ activity.distance_km }} km</span>{% endif %}
-      </div>
-    </a>
-    {% endfor %}
+
+  <div id="dashboard-panel-recent" class="profile-panel" role="tabpanel" aria-labelledby="dashboard-tab-recent">
+    {% if recent %}
+    <div class="activity-cards">
+      {% for activity in recent %}
+      <a href="/activities/{{ activity.id }}" class="activity-card">
+        <div class="activity-card-top">
+          <strong>{{ activity.name }}</strong>
+          {{ type_badge(activity.activity_type) }}
+        </div>
+        <div class="activity-card-meta">
+          <span>{{ activity.date.isoformat() }}</span>
+          {% if activity.distance_km %}<span>{{ activity.distance_km }} km</span>{% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-dim">No activities yet. <a href="/activities/new">Log your first outing</a>.</p>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="text-dim">No activities yet. <a href="/activities/new">Log your first outing</a>.</p>
-  {% endif %}
+
+  <div id="dashboard-panel-records" class="profile-panel" role="tabpanel" aria-labelledby="dashboard-tab-records" hidden>
+    <p class="text-dim personal-records-subtitle">All-time personal bests</p>
+    {% include "partials/personal_records_list.html" %}
+  </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
 {% endblock %}

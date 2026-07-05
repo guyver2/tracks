@@ -1,12 +1,12 @@
-from app.config import GPX_UPLOAD_DIR
+from app.config import GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE
 from app.db.models import Activity
 from app.db.session import SessionLocal
 from app.services.gpx import (
     aggregate_track_stats,
-    bounds_to_json,
     parse_track,
     recompute_track_start_time,
 )
+from app.services.personal_records import refresh_personal_records_cache
 
 
 def recompute_activity_elevation(activity_id: int) -> None:
@@ -40,5 +40,6 @@ def recompute_activity_elevation(activity_id: int) -> None:
             activity.elevation_gain_m = aggregated.elevation_gain_m
 
         db.commit()
+        refresh_personal_records_cache(db, GPX_UPLOAD_DIR, PERSONAL_RECORDS_CACHE_FILE)
     finally:
         db.close()
