@@ -110,6 +110,62 @@ def _bucket_key(value: date, group_by: str) -> str:
     raise ValueError(f"Unsupported group_by: {group_by}")
 
 
+def _month_start(value: date) -> date:
+    return date(value.year, value.month, 1)
+
+
+def _next_month(value: date) -> date:
+    if value.month == 12:
+        return date(value.year + 1, 1, 1)
+    return date(value.year, value.month + 1, 1)
+
+
+def _iter_bucket_keys(start: date, end: date, group_by: str) -> list[str]:
+    if group_by == "year":
+        return [str(year) for year in range(start.year, end.year + 1)]
+
+    if group_by == "month":
+        labels: list[str] = []
+        current = _month_start(start)
+        last = _month_start(end)
+        while current <= last:
+            labels.append(_bucket_key(current, "month"))
+            current = _next_month(current)
+        return labels
+
+    if group_by == "week":
+        labels = []
+        current = _week_start(start)
+        last = _week_start(end)
+        while current <= last:
+            labels.append(current.isoformat())
+            current += timedelta(days=7)
+        return labels
+
+    raise ValueError(f"Unsupported group_by: {group_by}")
+
+
+def _series_date_range(
+    db: Session,
+    *,
+    activity_type: ActivityType | None,
+    start: date | None,
+    end: date | None,
+) -> tuple[date | None, date | None]:
+    if start is not None and end is not None:
+        return start, end
+
+    min_date, _max_date = _apply_activity_filters(
+        db.query(func.min(Activity.date), func.max(Activity.date)),
+        activity_type=activity_type,
+        start=start,
+        end=end,
+    ).one()
+    if min_date is None:
+        return None, None
+    return min_date, date.today()
+
+
 def get_time_series(
     db: Session,
     *,
@@ -140,7 +196,16 @@ def get_time_series(
         bucket["distance"] += float(distance or 0)
         bucket["elevation"] += float(elevation or 0)
 
-    labels = sorted(buckets.keys())
+    range_start, range_end = _series_date_range(
+        db,
+        activity_type=activity_type,
+        start=start,
+        end=end,
+    )
+    if range_start is None or range_end is None:
+        return {"labels": [], "counts": [], "distances": [], "elevations": []}
+
+    labels = _iter_bucket_keys(range_start, range_end, group_by)
     counts = [int(buckets[label]["count"]) for label in labels]
     distances = [round(float(buckets[label]["distance"]), 1) for label in labels]
     elevations = [round(float(buckets[label]["elevation"]), 0) for label in labels]

@@ -102,12 +102,75 @@ def test_get_time_series_groups_by_month(db):
     )
     db.commit()
 
-    series = get_time_series(db, group_by="month")
+    series = get_time_series(
+        db,
+        group_by="month",
+        start=date(2024, 6, 1),
+        end=date(2024, 7, 31),
+    )
 
     assert series["labels"] == ["2024-06", "2024-07"]
     assert series["counts"] == [1, 1]
     assert series["distances"] == [10.0, 15.0]
     assert series["elevations"] == [100.0, 200.0]
+
+
+def test_get_time_series_includes_empty_months_in_range(db):
+    db.add_all(
+        [
+            Activity(
+                name="June outing",
+                activity_type=ActivityType.hike,
+                date=date(2024, 6, 10),
+                distance_km=10.0,
+                elevation_gain_m=100.0,
+            ),
+            Activity(
+                name="August outing",
+                activity_type=ActivityType.hike,
+                date=date(2024, 8, 5),
+                distance_km=15.0,
+                elevation_gain_m=200.0,
+            ),
+        ]
+    )
+    db.commit()
+
+    series = get_time_series(
+        db,
+        group_by="month",
+        start=date(2024, 6, 1),
+        end=date(2024, 8, 31),
+    )
+
+    assert series["labels"] == ["2024-06", "2024-07", "2024-08"]
+    assert series["counts"] == [1, 0, 1]
+    assert series["distances"] == [10.0, 0.0, 15.0]
+    assert series["elevations"] == [100.0, 0.0, 200.0]
+
+
+def test_get_time_series_includes_empty_weeks_in_range(db):
+    db.add(
+        Activity(
+            name="Mid June",
+            activity_type=ActivityType.hike,
+            date=date(2024, 6, 12),
+            distance_km=10.0,
+            elevation_gain_m=100.0,
+        )
+    )
+    db.commit()
+
+    series = get_time_series(
+        db,
+        group_by="week",
+        start=date(2024, 6, 1),
+        end=date(2024, 6, 30),
+    )
+
+    assert len(series["labels"]) >= 4
+    assert sum(series["counts"]) == 1
+    assert 0 in series["counts"]
 
 
 def test_resolve_date_range_custom_swaps_inverted_bounds():
