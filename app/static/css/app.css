@@ -373,13 +373,42 @@ a:hover {
 
 /* Badges */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
+}
+
+.activity-icon {
+  width: 1.35em;
+  height: 1.35em;
+  min-width: 1.35em;
+  flex: none;
+  display: block;
+}
+
+.activity-type {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.activity-type .activity-icon {
+  width: 1.15em;
+  height: 1.15em;
+  min-width: 1.15em;
 }
 
 .badge-hike {
@@ -2010,4 +2039,160 @@ input[type="file"].file-upload-input {
   }
 }
 
+/* Share card export (built off-screen at generation time) */
+.share-card-export-host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+}
 
+.share-card {
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  background: #0f1117;
+  color: #f0f4ff;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.share-card-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #1a1d27;
+}
+
+.share-card-map .leaflet-container {
+  width: 1080px;
+  height: 1350px;
+  background: #1a1d27;
+}
+
+.share-card--no-map .share-card-map {
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
+    linear-gradient(160deg, #0f1117 0%, #1e2235 55%, #151826 100%);
+}
+
+.share-card--no-map[data-activity-type="hike"] .share-card-map {
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--hike) 22%, transparent), transparent 42%),
+    linear-gradient(160deg, #0f1117 0%, #1e2235 55%, #151826 100%);
+}
+
+.share-card--no-map[data-activity-type="bike"] .share-card-map {
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--bike) 22%, transparent), transparent 42%),
+    linear-gradient(160deg, #0f1117 0%, #1e2235 55%, #151826 100%);
+}
+
+.share-card--no-map[data-activity-type="climbing"] .share-card-map {
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--climbing) 22%, transparent), transparent 42%),
+    linear-gradient(160deg, #0f1117 0%, #1e2235 55%, #151826 100%);
+}
+
+.share-card--no-map[data-activity-type="swimming"] .share-card-map {
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--swimming) 22%, transparent), transparent 42%),
+    linear-gradient(160deg, #0f1117 0%, #1e2235 55%, #151826 100%);
+}
+
+.share-card-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.share-card-overlay-top {
+  top: 0;
+  padding: 3rem 3.25rem 6rem;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 17, 23, 0.92) 0%,
+    rgba(15, 17, 23, 0.55) 55%,
+    transparent 100%
+  );
+}
+
+.share-card-overlay-bottom {
+  bottom: 0;
+  padding: 7rem 3.25rem 4.5rem;
+  background: linear-gradient(
+    0deg,
+    rgba(15, 17, 23, 0.96) 0%,
+    rgba(15, 17, 23, 0.72) 45%,
+    transparent 100%
+  );
+}
+
+.share-card-overlay-top .badge {
+  font-size: 1rem;
+  padding: 0.4rem 0.9rem;
+}
+
+.share-card-title {
+  margin: 1rem 0 0.65rem;
+  font-size: 3.25rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.share-card-meta {
+  margin: 0;
+  color: rgba(240, 244, 255, 0.78);
+  font-size: 1.45rem;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+
+.share-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.5rem 3.5rem;
+}
+
+.share-card-stat-label {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(240, 244, 255, 0.62);
+  margin-bottom: 0.4rem;
+}
+
+.share-card-stat-value {
+  font-size: 2.85rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+}
+
+.share-card-stat-unit {
+  font-size: 1.65rem;
+  font-weight: 600;
+  color: rgba(240, 244, 255, 0.68);
+  margin-left: 0.25rem;
+}
+
+.share-card-watermark {
+  position: absolute;
+  right: 3.25rem;
+  bottom: 2.75rem;
+  z-index: 2;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 255, 0.5);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}

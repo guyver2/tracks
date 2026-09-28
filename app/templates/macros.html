@@ -8,10 +8,28 @@
 {% endif %}
 {% endmacro %}
 
-{% macro type_badge(activity_type) %}
-{% set labels = {'hike': 'Hike', 'bike': 'Bike', 'skitouring': 'Ski touring', 'climbing': 'Climbing', 'swimming': 'Swimming'} %}
-<span class="badge badge-{{ activity_type.value }}">{{ labels.get(activity_type.value, activity_type.value) }}</span>
-{% endmacro %}
+{% macro activity_icon(kind) -%}
+{%- if kind == 'hike' -%}
+{%- include "icons/hike.svg" -%}
+{%- elif kind == 'bike' -%}
+{%- include "icons/bike.svg" -%}
+{%- elif kind == 'skitouring' -%}
+{%- include "icons/skitouring.svg" -%}
+{%- elif kind == 'climbing' -%}
+{%- include "icons/climbing.svg" -%}
+{%- elif kind == 'swimming' -%}
+{%- include "icons/swimming.svg" -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro type_badge(activity_type, plain=false) -%}
+{%- set labels = {'hike': 'Hike', 'bike': 'Bike', 'skitouring': 'Ski touring', 'climbing': 'Climbing', 'swimming': 'Swimming'} -%}
+{%- if plain -%}
+<span class="activity-type">{{ activity_icon(activity_type.value) }}<span>{{ labels.get(activity_type.value, activity_type.value) }}</span></span>
+{%- else -%}
+<span class="badge badge-{{ activity_type.value }}">{{ activity_icon(activity_type.value) }}{{ labels.get(activity_type.value, activity_type.value) }}</span>
+{%- endif -%}
+{%- endmacro %}
 
 {% macro round_elevation_tens(meters) %}{{ ((meters / 10)|round|int * 10)|int }}{% endmacro %}
 

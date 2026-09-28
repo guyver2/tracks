@@ -38,6 +38,7 @@ The biggest practical gap is the **disconnected phone → server pipeline**. Mos
 |----|------|------|--------|
 | sync-api | Android ↔ server GPX upload API + token auth | 1 | pending |
 | export-backup | Per-activity GPX download and bulk backup/export | 1 | pending |
+| share-card-png | Per-activity PNG share card (map + summary stats) | 1 | done |
 | search-pagination | Activity list search, sort, and pagination | 1 | done |
 | personal-records | PR detection from existing speed/distance data | 1 | done |
 | fit-import | FIT/TCX import with HR/cadence/power extraction | 1 | pending |
@@ -72,7 +73,27 @@ These extend the existing product without turning it into Strava.
 
 **Effort:** Low–medium · **Value:** High for self-hosting trust.
 
-### 3. Activity search, sort, and pagination ✓
+### 3. Activity share card (PNG export) ✓
+
+**Status:** Done — "Share card" on activity detail generates a 1080×1350 PNG (route canvas + stats) via client-side html-to-image; Web Share API on mobile, download fallback elsewhere. Elevation shown only when gain > 100 m.
+
+**Why:** Users often want to share a summary of an outing on social media or messaging without handing over a GPX file or asking recipients to open Tracks. Strava-style share cards are a familiar, low-friction pattern.
+
+**Proposal:**
+- “Export as image” / “Share card” action on activity detail ([`app/templates/activities/detail.html`](app/templates/activities/detail.html)).
+- Generated PNG with a clean layout (map hero + stat block), e.g.:
+  - Route map snapshot (reuse Leaflet bounds from [`Activity.bounds_json`](app/db/models.py) or existing GeoJSON endpoint).
+  - Date and start time.
+  - Activity type (hike, bike, skitouring, etc.).
+  - Duration, distance.
+  - Elevation gain — **only if &gt; 100 m** (omit or hide for flat outings).
+- Match Tracks visual style (typography, dark/light theme); optional small app watermark for self-hosted branding.
+- Implementation options: client-side capture (`html-to-image` / canvas from a dedicated share-card template) or server-side render (Playwright/Pillow + static map tiles). Client-first keeps ops simple.
+- Optional: Web Share API on mobile where supported (share PNG file directly).
+
+**Effort:** Medium · **Value:** Medium–high for sharing and motivation without a social layer.
+
+### 4. Activity search, sort, and pagination ✓
 
 **Status:** Done — search on name/place/comment, sort by date/distance/elevation, paginated list (25 per page).
 
@@ -85,7 +106,7 @@ These extend the existing product without turning it into Strava.
 
 **Effort:** Low · **Value:** Medium–high over time.
 
-### 4. Personal records (PRs) and “best efforts” ✓
+### 5. Personal records (PRs) and “best efforts” ✓
 
 **Status:** Done — longest distance/elevation/duration, per-type distance leaders, best 5k/10k/half marathon from GPX timestamps; badges on activity detail, records on dashboard and stats.
 
@@ -98,7 +119,7 @@ These extend the existing product without turning it into Strava.
 
 **Effort:** Medium · **Value:** High motivation without social complexity.
 
-### 5. Saved routes & repeat outings
+### 6. Saved routes & repeat outings
 
 **Why:** You store full GPX traces and bounds ([`Activity.bounds_json`](app/db/models.py)) but cannot reuse them as templates.
 
@@ -109,7 +130,7 @@ These extend the existing product without turning it into Strava.
 
 **Effort:** Medium · **Value:** Medium–high for hikers/cyclists who repeat favorite loops.
 
-### 6. FIT / TCX import (in addition to GPX)
+### 7. FIT / TCX import (in addition to GPX)
 
 **Why:** Watches and bike computers usually export FIT, not GPX. GPX-only limits the import story.
 
@@ -125,7 +146,7 @@ These extend the existing product without turning it into Strava.
 
 Build on data you almost already capture.
 
-### 7. Heart rate, cadence, and power charts
+### 8. Heart rate, cadence, and power charts
 
 **Why:** Speed and elevation charts exist; sensor streams in FIT/GPX extensions do not.
 
@@ -135,7 +156,7 @@ Build on data you almost already capture.
 
 **Effort:** Medium (depends on FIT import) · **Value:** Medium for cyclists/runners with sensors.
 
-### 8. Activity heatmap & “where I’ve been” map ✓
+### 9. Activity heatmap & “where I’ve been” map ✓
 
 **Status:** Done — stats page heatmap section with Leaflet.heat, filtered by activity type and date range, with disk cache.
 
@@ -147,7 +168,7 @@ Build on data you almost already capture.
 
 **Effort:** Medium · **Value:** Medium; great visual payoff.
 
-### 9. Smarter objectives & streaks
+### 10. Smarter objectives & streaks
 
 **Why:** Objectives exist ([`app/services/objectives.py`](app/services/objectives.py)) but are static targets only.
 
@@ -158,7 +179,7 @@ Build on data you almost already capture.
 
 **Effort:** Low–medium · **Value:** Medium engagement boost.
 
-### 10. Gear / equipment tracking
+### 11. Gear / equipment tracking
 
 **Why:** Self-hosters often want “how many km on these hiking boots / this bike” without SaaS lock-in.
 
@@ -174,7 +195,7 @@ Build on data you almost already capture.
 
 Only pursue if you want to move beyond “trusted LAN diary.”
 
-### 11. Optional multi-user auth
+### 12. Optional multi-user auth
 
 **Why:** README states no login. Any shared or internet-exposed instance needs auth.
 
@@ -184,7 +205,7 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 **Effort:** Medium–high · **Value:** Required before social or public deployment.
 
-### 12. Segments & leaderboards
+### 13. Segments & leaderboards
 
 **Why:** Core Strava differentiator; technically non-trivial.
 
@@ -194,7 +215,7 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 **Effort:** High · **Value:** High for competitive cyclists, low for hiking diary use.
 
-### 13. Social layer (follow, feed, kudos, clubs)
+### 14. Social layer (follow, feed, kudos, clubs)
 
 **Why:** Completely absent; largest gap vs Strava.
 
@@ -206,7 +227,7 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 ## Tier 4 — Quality, ops, and UX polish
 
-### 14. Automated tests ✓
+### 15. Automated tests ✓
 
 **Status:** Done — pytest suite covers GPX parsing/trim/aggregation, stats filters, and objective progress.
 
@@ -216,7 +237,7 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 **Effort:** Medium · **Value:** High for maintainability.
 
-### 15. Lightweight JSON API + OpenAPI
+### 16. Lightweight JSON API + OpenAPI
 
 **Why:** Endpoints like `/activities/{id}/gpx.geojson` exist, but there is no cohesive API for scripts, mobile, or automation.
 
@@ -224,7 +245,7 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 **Effort:** Low–medium · **Value:** Enables sync, scripts, integrations.
 
-### 16. PWA / offline-friendly web UI
+### 17. PWA / offline-friendly web UI
 
 **Why:** Responsive UI exists; recording on the web (mobile browser) does not.
 
@@ -232,7 +253,7 @@ Only pursue if you want to move beyond “trusted LAN diary.”
 
 **Effort:** Medium · **Value:** Medium if you want one less app.
 
-### 17. Import from Strava / Garmin export
+### 18. Import from Strava / Garmin export
 
 **Why:** Migration path for people leaving Strava.
 
@@ -252,6 +273,7 @@ flowchart TD
 
   phase1 --> sync[Android upload API]
   phase1 --> export[GPX export and backup]
+  phase1 --> sharecard[Activity PNG share card]
   phase1 --> search[Search and pagination]
 
   phase2 --> fit[FIT/TCX import]

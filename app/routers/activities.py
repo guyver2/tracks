@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
@@ -135,11 +135,16 @@ def _recompute_activity_from_tracks(activity: Activity) -> None:
     activity.bounds_json = bounds_to_json(aggregated.bounds)
 
 
-def _activity_date_from_tracks(tracks: list[ActivityTrack]) -> date | None:
+def _activity_start_time_from_tracks(tracks: list[ActivityTrack]) -> datetime | None:
     starts = [track.track_start_time for track in tracks if track.track_start_time is not None]
     if not starts:
         return None
-    return min(starts).date()
+    return min(starts)
+
+
+def _activity_date_from_tracks(tracks: list[ActivityTrack]) -> date | None:
+    start = _activity_start_time_from_tracks(tracks)
+    return start.date() if start else None
 
 
 def _apply_gpx_activity_date(activity: Activity, form_date: date) -> None:
@@ -846,6 +851,7 @@ def activity_detail(
             "flash": flash_msg,
             "has_gpx": bool(activity.tracks),
             "activity_records": activity_records,
+            "activity_start_time": _activity_start_time_from_tracks(activity.tracks),
         },
     )
 

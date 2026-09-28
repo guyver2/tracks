@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% from "macros.html" import format_duration, type_badge, stat_card %}
+{% from "macros.html" import format_duration, format_elevation_m, type_badge, stat_card %}
 
 {% block title %}{{ activity.name }} — Tracks{% endblock %}
 
 {% block head %}
-{% if activity.activity_type.supports_track %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% if activity.activity_type.supports_track %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 {% endif %}
 {% endblock %}
@@ -35,6 +35,7 @@
         </span>
       </summary>
       <div class="options-menu-panel" role="menu">
+        <button type="button" id="share-card-trigger" class="options-menu-item" role="menuitem">Share card</button>
         <a href="/activities/{{ activity.id }}/edit" class="options-menu-item" role="menuitem">Edit</a>
         <form method="post" action="/activities/{{ activity.id }}/duplicate" class="options-menu-form">
           <button type="submit" class="options-menu-item" role="menuitem">Duplicate</button>
@@ -133,6 +134,21 @@
 </div>
 {% endif %}
 
+{% set type_labels = {'hike': 'Hike', 'bike': 'Bike', 'skitouring': 'Ski touring', 'climbing': 'Climbing', 'swimming': 'Swimming'} %}
+<script type="application/json" id="share-card-data">{{ {
+  'name': activity.name,
+  'activityType': activity.activity_type.value,
+  'typeLabel': type_labels.get(activity.activity_type.value, activity.activity_type.value),
+  'date': activity.date.isoformat(),
+  'startTime': activity_start_time.strftime('%H:%M') if activity_start_time else none,
+  'place': activity.place or none,
+  'distanceKm': activity.distance_km,
+  'duration': format_duration(activity.duration_sec),
+  'elevationDisplay': format_elevation_m(activity.elevation_gain_m) if activity.elevation_gain_m is not none and activity.elevation_gain_m > 100 else none,
+  'geojsonUrl': '/activities/' ~ activity.id ~ '/gpx.geojson' if has_gpx else none,
+  'hasMap': has_gpx
+} | tojson }}</script>
+
 {% if activity.photos %}
 <dialog id="photo-lightbox" class="photo-lightbox" aria-label="Photo viewer">
   <div class="photo-lightbox-card card">
@@ -167,11 +183,13 @@
   });
 })();
 </script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+<script src="/static/js/share_card.js"></script>
 {% if activity.photos %}
 <script src="/static/js/photo_gallery.js"></script>
 {% endif %}
 {% if activity.activity_type.supports_track %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/js/elevation_chart.js"></script>
 <script src="/static/js/speed_chart.js"></script>
 <script src="/static/js/map_fullscreen.js"></script>

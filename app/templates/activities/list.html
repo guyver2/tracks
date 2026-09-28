@@ -80,7 +80,7 @@
   <a href="/activities/{{ activity.id }}" class="activity-card">
     <div class="activity-card-top">
       <strong>{{ activity.name }}</strong>
-      {{ type_badge(activity.activity_type) }}
+      {{ type_badge(activity.activity_type, plain=true) }}
     </div>
     <div class="activity-card-meta">
       <span>{{ activity.date.isoformat() }}</span>
@@ -110,7 +110,7 @@
       <tr>
         <td>{{ activity.date.isoformat() }}</td>
         <td><a href="/activities/{{ activity.id }}">{{ activity.name }}</a></td>
-        <td>{{ type_badge(activity.activity_type) }}</td>
+        <td>{{ type_badge(activity.activity_type, plain=true) }}</td>
         <td>{{ activity.place or '—' }}</td>
         <td>{% if activity.distance_km %}{{ activity.distance_km }} km{% else %}—{% endif %}</td>
         <td>{{ format_duration(activity.duration_sec) }}</td>
