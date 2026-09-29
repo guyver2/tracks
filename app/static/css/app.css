@@ -411,6 +411,51 @@ a:hover {
   min-width: 1.15em;
 }
 
+@media (max-width: 700px) {
+  .activity-icon {
+    width: 1em;
+    height: 1em;
+    min-width: 1em;
+  }
+
+  .activity-type .activity-icon {
+    width: 0.86em;
+    height: 0.86em;
+    min-width: 0.86em;
+  }
+
+  .share-card .activity-icon {
+    width: 1.35em;
+    height: 1.35em;
+    min-width: 1.35em;
+  }
+
+  .badge,
+  .activity-type {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .activity-card-top {
+    flex-wrap: nowrap;
+  }
+
+  .activity-card-top > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .activity-card-top > .badge,
+  .activity-card-top > .activity-type,
+  .detail-meta > .badge {
+    flex-shrink: 0;
+  }
+}
+
 .badge-hike {
   background: color-mix(in srgb, var(--hike) 20%, var(--surface));
   color: var(--hike);
