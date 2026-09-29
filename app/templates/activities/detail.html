@@ -134,19 +134,17 @@
 </div>
 {% endif %}
 
-{% set type_labels = {'hike': 'Hike', 'bike': 'Bike', 'skitouring': 'Ski touring', 'climbing': 'Climbing', 'swimming': 'Swimming'} %}
 <script type="application/json" id="share-card-data">{{ {
   'name': activity.name,
-  'activityType': activity.activity_type.value,
-  'typeLabel': type_labels.get(activity.activity_type.value, activity.activity_type.value),
   'date': activity.date.isoformat(),
-  'startTime': activity_start_time.strftime('%H:%M') if activity_start_time else none,
-  'place': activity.place or none,
   'distanceKm': activity.distance_km,
-  'duration': format_duration(activity.duration_sec),
-  'elevationDisplay': format_elevation_m(activity.elevation_gain_m) if activity.elevation_gain_m is not none and activity.elevation_gain_m > 100 else none,
+  'durationSec': activity.duration_sec,
+  'elevationGainM': activity.elevation_gain_m,
   'geojsonUrl': '/activities/' ~ activity.id ~ '/gpx.geojson' if has_gpx else none,
-  'hasMap': has_gpx
+  'elevationUrl': '/activities/' ~ activity.id ~ '/elevation.json' if has_gpx else none,
+  'hasMap': has_gpx,
+  'mapboxToken': mapbox_token,
+  'mapboxStyle': mapbox_style
 } | tojson }}</script>
 
 {% if activity.photos %}

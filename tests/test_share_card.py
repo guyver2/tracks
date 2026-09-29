@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 from unittest.mock import patch
 
@@ -91,3 +92,17 @@ def test_activity_detail_includes_share_card_markup(client, db):
     assert 'id="share-card-trigger"' in body
     assert "/static/js/share_card.js" in body
     assert "Share card" in body
+
+    start = body.index('id="share-card-data">') + len('id="share-card-data">')
+    payload = json.loads(body[start:body.index("</script>", start)])
+    assert payload["name"] == "Alpine loop"
+    assert payload["date"] == "2024-06-01"
+    assert payload["distanceKm"] == 12.5
+    assert payload["durationSec"] == 7200
+    assert payload["elevationGainM"] == 850.0
+    assert payload["geojsonUrl"] is None
+    assert payload["elevationUrl"] is None
+    assert payload["hasMap"] is False
+    assert "mapboxToken" in payload
+    assert "mapboxStyle" in payload
+    assert "mapbox-gl.js" not in body

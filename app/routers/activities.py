@@ -13,6 +13,8 @@ from app.config import (
     ACTIVITIES_PAGE_SIZE,
     GPX_UPLOAD_DIR,
     MAP_GEOJSON_CACHE_DIR,
+    MAPBOX_STYLE,
+    MAPBOX_TOKEN,
     MAX_PHOTOS_PER_ACTIVITY,
     MAX_TRACKS_PER_ACTIVITY,
     PERSONAL_RECORDS_CACHE_FILE,
@@ -852,6 +854,8 @@ def activity_detail(
             "has_gpx": bool(activity.tracks),
             "activity_records": activity_records,
             "activity_start_time": _activity_start_time_from_tracks(activity.tracks),
+            "mapbox_token": MAPBOX_TOKEN or None,
+            "mapbox_style": MAPBOX_STYLE or None,
         },
     )
 
