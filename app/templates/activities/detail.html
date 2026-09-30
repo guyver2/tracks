@@ -144,8 +144,16 @@
   'elevationUrl': '/activities/' ~ activity.id ~ '/elevation.json' if has_gpx else none,
   'hasMap': has_gpx,
   'mapboxToken': mapbox_token,
-  'mapboxStyle': mapbox_style
+  'mapboxStyle': mapbox_style,
+  'shareCardUrl': '/activities/' ~ activity.id ~ '/share-card'
 } | tojson }}</script>
+
+<dialog id="share-card-viewer" class="share-card-viewer" aria-label="Share card">
+  <button type="button" class="btn btn-secondary btn-icon share-card-viewer-close" aria-label="Close">&times;</button>
+  <div class="share-card-viewer-stage">
+    <img class="share-card-viewer-image" alt="">
+  </div>
+</dialog>
 
 {% if activity.photos %}
 <dialog id="photo-lightbox" class="photo-lightbox" aria-label="Photo viewer">

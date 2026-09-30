@@ -29,18 +29,44 @@
     "DECEMBER",
   ];
 
-  function slugify(text) {
-    return (
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || "activity"
-    );
+  const viewer = document.getElementById("share-card-viewer");
+  const viewerImage = viewer ? viewer.querySelector(".share-card-viewer-image") : null;
+  if (viewer && viewerImage) {
+    viewer.querySelector(".share-card-viewer-close").addEventListener("click", function () {
+      viewer.close();
+    });
+    viewer.addEventListener("click", function (event) {
+      if (event.target === viewer || event.target.classList.contains("share-card-viewer-stage")) {
+        viewer.close();
+      }
+    });
+    viewer.addEventListener("close", function () {
+      viewerImage.removeAttribute("src");
+    });
   }
 
-  function getFilename() {
-    const dateText = activityData.date || "";
-    return slugify(activityData.name || "activity") + (dateText ? "-" + dateText : "") + ".jpg";
+  function showShareCard(url) {
+    if (!viewer || !viewerImage) {
+      throw new Error("Could not open share card.");
+    }
+    viewerImage.alt = activityData.name || "Share card";
+    viewerImage.src = url;
+    if (!viewer.open) viewer.showModal();
+  }
+
+  async function shareCardExists() {
+    const response = await fetch(activityData.shareCardUrl, { method: "HEAD" });
+    return response.ok;
+  }
+
+  async function storeShareCard(blob) {
+    const body = new FormData();
+    body.append("file", blob, "share-card.jpg");
+    const response = await fetch(activityData.shareCardUrl, { method: "POST", body: body });
+    if (!response.ok) throw new Error("Could not save share card.");
+    const payload = await response.json();
+    if (!payload.url) throw new Error("Could not save share card.");
+    return payload.url;
   }
 
   function formatDate(iso) {
@@ -422,33 +448,26 @@
     return true;
   }
 
-  async function downloadOrShare(blob, filename) {
-    const file = new File([blob], filename, { type: "image/jpeg" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename });
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   async function generateShareCard() {
     const menu = document.getElementById("activity-options");
     if (menu) menu.open = false;
 
     const originalText = shareBtn.textContent;
     shareBtn.disabled = true;
-    shareBtn.textContent = "Generating…";
+    shareBtn.textContent = "Opening…";
 
     const host = document.createElement("div");
     host.className = "share-card-export-host";
     let map = null;
 
     try {
+      if (await shareCardExists()) {
+        showShareCard(activityData.shareCardUrl);
+        return;
+      }
+
+      shareBtn.textContent = "Generating…";
+
       let geojson = null;
       if (activityData.hasMap && activityData.geojsonUrl) {
         geojson = await fetchJson(activityData.geojsonUrl);
@@ -489,7 +508,8 @@
       });
       const resp = await fetch(dataUrl);
       const blob = await resp.blob();
-      await downloadOrShare(blob, getFilename());
+      const savedUrl = await storeShareCard(blob);
+      showShareCard(savedUrl);
     } catch (err) {
       alert(err.message || "Could not generate share card.");
     } finally {

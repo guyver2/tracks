@@ -4,7 +4,7 @@ from typing import Annotated
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, nulls_last, or_
 from sqlalchemy.orm import Session, joinedload
@@ -51,6 +51,7 @@ from app.services.map_cache import (
 )
 from app.services.personal_records import get_personal_records, records_for_activity, refresh_personal_records_cache
 from app.services.heatmap import invalidate_heatmap_cache
+from app.services.share_cards import delete_share_card, share_card_path, write_share_card
 from app.services.uploads import delete_file, save_gpx, save_photo
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -860,6 +861,61 @@ def activity_detail(
     )
 
 
+def _missing_share_card() -> Response:
+    return Response(status_code=404, headers={"Cache-Control": "no-store"})
+
+
+@router.head("/{activity_id}/share-card")
+def activity_share_card_head(activity_id: int, db: Annotated[Session, Depends(get_db)]):
+    _get_activity_or_404(db, activity_id)
+    path = share_card_path(activity_id)
+    if not path.is_file():
+        return _missing_share_card()
+    return Response(
+        status_code=200,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "private, no-cache",
+            "Content-Length": str(path.stat().st_size),
+        },
+    )
+
+
+@router.get("/{activity_id}/share-card")
+def activity_share_card(activity_id: int, db: Annotated[Session, Depends(get_db)]):
+    _get_activity_or_404(db, activity_id)
+    path = share_card_path(activity_id)
+    if not path.is_file():
+        return _missing_share_card()
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        filename=path.name,
+        content_disposition_type="inline",
+        headers={"Cache-Control": "private, no-cache"},
+    )
+
+
+@router.post("/{activity_id}/share-card")
+async def save_activity_share_card(
+    activity_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    _get_activity_or_404(db, activity_id)
+    path = share_card_path(activity_id)
+    url = f"/activities/{activity_id}/share-card"
+    if path.is_file():
+        return JSONResponse({"url": url})
+
+    content = await file.read()
+    try:
+        write_share_card(activity_id, content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse({"url": url})
+
+
 @router.get("/{activity_id}/gpx.geojson")
 def activity_geojson(activity_id: int, db: Annotated[Session, Depends(get_db)]):
     activity = _get_activity_or_404(db, activity_id)
@@ -1018,6 +1074,7 @@ async def update_activity(
         )
 
     db.commit()
+    delete_share_card(activity_id)
     _refresh_personal_records(db)
     if parsed_type.supports_track and added_tracks:
         _enqueue_elevation_jobs(activity, added_tracks)
@@ -1034,6 +1091,7 @@ def delete_activity(activity_id: int, db: Annotated[Session, Depends(get_db)]):
         get_worker().cancel(track.gpx_filename)
     for photo in activity.photos:
         delete_file(PHOTO_UPLOAD_DIR, photo.filename)
+    delete_share_card(activity_id)
     db.delete(activity)
     db.commit()
     _refresh_personal_records(db)

@@ -27,6 +27,7 @@ DATABASE_URL = os.environ.get(
 
 GPX_UPLOAD_DIR = DATA_DIR / "uploads" / "gpx"
 PHOTO_UPLOAD_DIR = DATA_DIR / "uploads" / "photos"
+SHARE_CARD_DIR = DATA_DIR / "share_cards"
 ELEVATION_CACHE_DIR = DATA_DIR / "elevation_cache"
 MAP_GEOJSON_CACHE_DIR = DATA_DIR / "map_cache"
 HEATMAP_CACHE_DIR = DATA_DIR / "heatmap_cache"
@@ -56,6 +57,7 @@ def ensure_data_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GPX_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     PHOTO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    SHARE_CARD_DIR.mkdir(parents=True, exist_ok=True)
     ELEVATION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     MAP_GEOJSON_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     HEATMAP_CACHE_DIR.mkdir(parents=True, exist_ok=True)

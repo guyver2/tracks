@@ -105,4 +105,95 @@ def test_activity_detail_includes_share_card_markup(client, db):
     assert payload["hasMap"] is False
     assert "mapboxToken" in payload
     assert "mapboxStyle" in payload
+    assert payload["shareCardUrl"] == f"/activities/{activity.id}/share-card"
+    assert 'id="share-card-viewer"' in body
     assert "mapbox-gl.js" not in body
+
+
+JPEG = b"\xff\xd8\xff\xd9"
+
+
+def _activity(db):
+    activity = Activity(
+        name="Alpine loop",
+        activity_type=ActivityType.hike,
+        date=date(2024, 6, 1),
+        place="Chamonix",
+        distance_km=12.5,
+        duration_sec=7200,
+        elevation_gain_m=850.0,
+    )
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+    return activity
+
+
+def test_share_card_is_saved_once_and_reused(client, db, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.share_cards.SHARE_CARD_DIR", tmp_path)
+    activity = _activity(db)
+
+    missing = client.get(f"/activities/{activity.id}/share-card")
+    assert missing.status_code == 404
+    assert missing.headers["cache-control"] == "no-store"
+    assert client.head(f"/activities/{activity.id}/share-card").status_code == 404
+
+    created = client.post(
+        f"/activities/{activity.id}/share-card",
+        files={"file": ("card.jpg", JPEG, "image/jpeg")},
+    )
+    assert created.status_code == 200
+    assert created.json()["url"] == f"/activities/{activity.id}/share-card"
+    assert (tmp_path / f"{activity.id}.jpg").read_bytes() == JPEG
+
+    again = client.post(
+        f"/activities/{activity.id}/share-card",
+        files={"file": ("card.jpg", b"\xff\xd8\xff\x00\xd9", "image/jpeg")},
+    )
+    assert again.status_code == 200
+    assert (tmp_path / f"{activity.id}.jpg").read_bytes() == JPEG
+
+    stored = client.get(f"/activities/{activity.id}/share-card")
+    assert stored.status_code == 200
+    assert stored.headers["content-type"].startswith("image/jpeg")
+    assert "inline" in stored.headers["content-disposition"]
+    assert stored.content == JPEG
+    assert client.head(f"/activities/{activity.id}/share-card").status_code == 200
+
+
+def test_share_card_rejects_non_jpeg(client, db, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.share_cards.SHARE_CARD_DIR", tmp_path)
+    activity = _activity(db)
+
+    response = client.post(
+        f"/activities/{activity.id}/share-card",
+        files={"file": ("card.png", b"not-a-jpeg", "image/png")},
+    )
+    assert response.status_code == 400
+    assert not (tmp_path / f"{activity.id}.jpg").exists()
+
+
+def test_activity_update_and_delete_remove_share_card(client, db, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.share_cards.SHARE_CARD_DIR", tmp_path)
+    activity = _activity(db)
+    path = tmp_path / f"{activity.id}.jpg"
+    path.write_bytes(JPEG)
+
+    with patch("app.routers.activities._refresh_personal_records"):
+        updated = client.post(
+            f"/activities/{activity.id}",
+            data={
+                "name": "Alpine loop",
+                "activity_type": "hike",
+                "date": "2024-06-02",
+            },
+            follow_redirects=False,
+        )
+    assert updated.status_code == 303
+    assert not path.exists()
+
+    path.write_bytes(JPEG)
+    with patch("app.routers.activities._refresh_personal_records"):
+        deleted = client.post(f"/activities/{activity.id}/delete", follow_redirects=False)
+    assert deleted.status_code == 303
+    assert not path.exists()
