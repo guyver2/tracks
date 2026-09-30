@@ -1,26 +1,28 @@
 # Tracks
 
-Self-hosted web app for logging sport activities (hikes and bike rides) with GPX traces, maps, statistics, and goals.
+Self-hosted web app for logging sport activities — hikes, bike rides, ski tours, climbs, and swims — with GPX traces, maps, statistics, and goals.
 
 ## Screenshots
 
-| Dashboard | Activity detail |
+| Dashboard | Activity |
 | --- | --- |
-| ![Dashboard with recent activities, objectives, and activity calendar](screenshots/tracks_home.jpg) | ![Activity detail with map, elevation chart, and stats](screenshots/tracks_activity.jpg) |
+| ![Dashboard with this month's distance, objectives, and recent outings](screenshots/tracks_home.jpg) | ![Activity detail for a bike ride, with map, elevation, and stats](screenshots/tracks_activity.jpg) |
 
-| Photo & comment | Statistics |
+| Share card | Personal records |
 | --- | --- |
-| ![Activity with photo, comment, map, and elevation profile](screenshots/tracks_photo.jpg) | ![Statistics dashboard with charts and activity calendar](screenshots/tracks_stats.jpg) |
+| ![Share card poster for the same outing](screenshots/tracks_share_card.jpg) | ![Personal records on the statistics page](screenshots/tracks_records.jpg) |
 
 ## Features
 
-- Log activities with date, place, type, comment, GPX trace, and photo
-- Map view with GPS trace (Leaflet + OpenStreetMap)
-- Activity log with filters
-- Dashboard with recent outings and quick stats
-- Objectives (distance, duration, or activity count)
-- Statistics charts
-- Responsive UI for mobile and desktop
+- Log hikes, bike rides, ski tours, climbs, and swims with a date, place, comment, GPX trace, and photos
+- Map view with the GPS trace, elevation profile, and speed profile (Leaflet + OpenStreetMap)
+- Activity list with search, sort, pagination, and type icons
+- Dashboard with recent outings, objectives, and quick stats
+- Objectives for distance, duration, or activity count
+- Statistics with charts, an activity calendar, filters, and a track heatmap
+- Personal records from logged outings
+- Share card poster for an outing, opened in a full-page viewer
+- Responsive layout for mobile and desktop
 
 No login — intended for single-user use on a trusted network (e.g. your LAN).
 
